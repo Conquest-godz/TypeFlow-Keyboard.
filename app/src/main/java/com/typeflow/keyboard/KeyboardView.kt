@@ -65,7 +65,35 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 lp.setMargins(dp(2), dp(3), dp(2), dp(3))
                 key.layoutParams = lp
 
-                if (label == "⌫") {
+                if (label == "SPACE") {
+                    var previousX = 0f
+                    var accumulatedX = 0f
+                    key.setOnTouchListener { _, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> {
+                                previousX = event.rawX
+                                accumulatedX = 0f
+                                key.setTouchFeedback(pressed = true, performHaptic = true)
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val delta = event.rawX - previousX
+                                previousX = event.rawX
+                                accumulatedX += delta
+                                val steps = GestureMath.cursorSteps(accumulatedX, (key.width / 2f).coerceAtLeast(1f))
+                                if (steps != 0) {
+                                    keyListener?.invoke("CURSOR:$steps")
+                                    accumulatedX -= steps * (key.width / 2f).coerceAtLeast(1f)
+                                }
+                            }
+                            MotionEvent.ACTION_UP -> {
+                                key.setTouchFeedback(pressed = false)
+                                if (kotlin.math.abs(accumulatedX) < key.width * 0.12f) keyListener?.invoke("SPACE")
+                            }
+                            MotionEvent.ACTION_CANCEL -> key.setTouchFeedback(pressed = false)
+                        }
+                        true
+                    }
+                } else if (label == "⌫") {
                     key.setOnTouchListener { _, event ->
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
