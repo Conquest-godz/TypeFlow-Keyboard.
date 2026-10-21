@@ -3,6 +3,7 @@ package com.typeflow.keyboard
 import android.inputmethodservice.InputMethodService
 import android.os.SystemClock
 import android.text.InputType
+import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -38,6 +39,15 @@ class TypeFlowService : InputMethodService() {
             }
 
             val ic = currentInputConnection ?: return@setKeyListener
+            if (key.startsWith("CURSOR:")) {
+                val steps = key.removePrefix("CURSOR:").toIntOrNull()?.coerceIn(-20, 20) ?: 0
+                val direction = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+                repeat(kotlin.math.abs(steps)) {
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, direction))
+                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, direction))
+                }
+                return@setKeyListener
+            }
             when {
                 key.startsWith("E:") -> {
                     ic.commitText(key.removePrefix("E:"), 1)
