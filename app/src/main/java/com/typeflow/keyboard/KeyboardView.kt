@@ -265,7 +265,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             }
             grid.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
-        scroll.addView(grid, ScrollView.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        scroll.addView(grid, android.widget.FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
