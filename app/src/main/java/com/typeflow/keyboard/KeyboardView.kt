@@ -250,7 +250,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         swiping -> {
                             // Only commit a dictionary-recognized word. Inserting the raw path
                             // would turn a missed recognition into visible gibberish.
-                            if (gesturePoints.size >= 4) {
+                            if (gesturePoints.size >= 2 && path.size >= 2) {
                                 // Prefer geometric decoding. If its confidence gate rejects the
                                 // trace, fall back to the offline lexical path decoder so ordinary
                                 // swipes don't silently do nothing. This remains local-only.
