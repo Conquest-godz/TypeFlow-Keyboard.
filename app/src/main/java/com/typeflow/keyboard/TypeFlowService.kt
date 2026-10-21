@@ -50,7 +50,8 @@ class TypeFlowService : InputMethodService() {
                         key
                     }
                     ic.commitText(output, 1)
-                    if (!numberMode && key.any { it.isLetter() }) {
+                    if (!numberMode && key.length == 1 && (key[0].isLetter() || !key[0].isLetterOrDigit())) {
+                        // A one-shot Shift applies to punctuation too, not only letters.
                         shiftState.onCharacterCommitted()
                         syncShiftState()
                     }
@@ -75,7 +76,7 @@ class TypeFlowService : InputMethodService() {
         super.onFinishInput()
         shiftState.onInputStarted(autoCapitalize = false)
         numberMode = false
-        keyboard = null
+        // Keep the view reference: Android may reuse the same input view for the next field.
     }
 
     private fun syncShiftState() {
