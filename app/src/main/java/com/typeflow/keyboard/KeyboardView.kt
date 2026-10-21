@@ -251,8 +251,13 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                             // Only commit a dictionary-recognized word. Inserting the raw path
                             // would turn a missed recognition into visible gibberish.
                             if (gesturePoints.size >= 4) {
-                                SwipeTypingEngine.recognizeSpatial(path, gesturePoints, keyCenterMap())
-                                    ?.let { keyListener?.invoke("SWIPEWORD:$it") }
+                                // Prefer geometric decoding. If its confidence gate rejects the
+                                // trace, fall back to the offline lexical path decoder so ordinary
+                                // swipes don't silently do nothing. This remains local-only.
+                                val centers = keyCenterMap()
+                                val decoded = SwipeTypingEngine.recognizeSpatial(path, gesturePoints, centers)
+                                    ?: SwipeTypingEngine.recognize(path)
+                                decoded?.let { keyListener?.invoke("SWIPEWORD:$it") }
                             }
                         }
                         !swiping -> keyListener?.invoke(originalLabel)
