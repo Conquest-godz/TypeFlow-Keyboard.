@@ -27,4 +27,47 @@ class SwipeTypingEngineTest {
     @Test fun ignoresTooShortPaths() {
         assertNull(SwipeTypingEngine.recognize(listOf('a')))
     }
+
+    private fun qwertyCenters(): Map<Char, SwipeTypingEngine.Point> {
+        val rows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
+        val result = mutableMapOf<Char, SwipeTypingEngine.Point>()
+        rows.forEachIndexed { rowIndex, row ->
+            row.forEachIndexed { columnIndex, char ->
+                val rowOffset = when (rowIndex) {
+                    1 -> 0.045f
+                    2 -> 0.10f
+                    else -> 0f
+                }
+                result[char] = SwipeTypingEngine.Point(
+                    (columnIndex + 0.5f) / 10f + rowOffset,
+                    0.25f + rowIndex * 0.25f
+                )
+            }
+        }
+        return result
+    }
+
+    @Test fun spatialDecoderRecognizesExactKnownTrace() {
+        val centers = qwertyCenters()
+        val trace = "hello".map { centers.getValue(it) }
+        assertEquals("hello", SwipeTypingEngine.recognizeSpatial("hello".toList(), trace, centers))
+    }
+
+    @Test fun spatialDecoderRecognizesTraceWhenVisitedKeysSkipRepeatedLetter() {
+        val centers = qwertyCenters()
+        val trace = "hello".map { centers.getValue(it) }
+        assertEquals("hello", SwipeTypingEngine.recognizeSpatial("helo".toList(), trace, centers))
+    }
+
+    @Test fun spatialDecoderRejectsTooShortTrace() {
+        val centers = qwertyCenters()
+        assertNull(
+            SwipeTypingEngine.recognizeSpatial(
+                listOf('h', 'o'),
+                listOf(centers.getValue('h'), centers.getValue('o')),
+                centers
+            )
+        )
+    }
+
 }
