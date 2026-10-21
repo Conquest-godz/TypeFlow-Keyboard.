@@ -287,6 +287,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     fun setKeyListener(listener: (String) -> Unit) { keyListener = listener }
 
     internal fun setShiftState(state: ShiftStateMachine.State) {
+        if (emojiMode) return
         val shifted = state != ShiftStateMachine.State.OFF
         keyViews.forEach { key ->
             val label = key.getLabel()
