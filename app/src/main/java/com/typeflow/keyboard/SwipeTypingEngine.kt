@@ -1,20 +1,21 @@
 package com.typeflow.keyboard
 
 import java.io.InputStream
+import java.util.PriorityQueue
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Offline geometric glide decoder.
- *
- * First narrows the local dictionary using the approximate visited-key sequence, then ranks
- * candidates by the shape of the actual touch trace against the candidate's QWERTY key-centre
- * template using resampled, endpoint-anchored DTW. No gesture data leaves the device.
+ * Offline geometric glide decoder. Candidate generation is bounded, the touch trace is scored
+ * against local QWERTY templates, and low-confidence traces are rejected rather than guessed.
+ * No gesture data leaves the device.
  */
 internal object SwipeTypingEngine {
     data class Point(val x: Float, val y: Float)
+    private data class Candidate(val word: String, val edits: Int)
+    private data class RankedWord(val word: String, val score: Double)
 
     private val seedWords = setOf(
         "a", "about", "after", "again", "all", "also", "am", "an", "and", "are", "as", "at",
@@ -33,6 +34,7 @@ internal object SwipeTypingEngine {
         input.bufferedReader(Charsets.UTF_8).useLines { lines ->
             val loaded = lines.map { it.trim().lowercase() }
                 .filter { it.length in 2..32 && it.all { c -> c in 'a'..'z' } }
+                .distinct()
                 .toList()
             if (loaded.isNotEmpty()) dictionary = (loaded + seedWords).distinct()
         }
@@ -44,25 +46,24 @@ internal object SwipeTypingEngine {
         .fold(StringBuilder()) { acc, c -> if (acc.lastOrNull() != c) acc.append(c) else acc }
         .toString()
 
-    /** Compatibility fallback for unit tests and environments without coordinate samples. */
+    /** Legacy lexical helper; production glide recognition uses recognizeSpatial only. */
     fun recognize(path: List<Char>): String? {
         val normalized = normalizePath(path)
         if (normalized.length < 2) return null
         if (normalized in dictionary) return normalized
         val maxDistance = (normalized.length / 3).coerceIn(1, 3)
-        return dictionary.asSequence()
+        val ranked = dictionary.asSequence()
             .filter { abs(it.length - normalized.length) <= maxDistance }
             .map { it to editDistance(normalized, it) }
             .filter { it.second <= maxDistance }
             .sortedWith(compareBy<Pair<String, Int>> { it.second }
                 .thenBy { if (it.first.firstOrNull() == normalized.first()) 0 else 1 }
-                .thenBy { if (it.first.lastOrNull() == normalized.last()) 0 else 1 })
-            .take(2).toList().let { ranked ->
-                if (ranked.isEmpty()) null
-                else if (ranked.size > 1 && ranked[0].second == ranked[1].second &&
-                    ranked[0].first.length > 3) null
-                else ranked[0].first
-            }
+                .thenBy { if (it.first.lastOrNull() == normalized.last()) 0 else 1 }
+                .thenBy { it.first })
+            .take(2).toList()
+        if (ranked.isEmpty()) return null
+        if (ranked.size > 1 && ranked[0].second == ranked[1].second && ranked[0].first.length > 3) return null
+        return ranked[0].first
     }
 
     fun recognizeSpatial(
@@ -70,43 +71,81 @@ internal object SwipeTypingEngine {
         rawPath: List<Point>,
         keyCenters: Map<Char, Point>
     ): String? {
+        if (visitedKeys.size < 2 || rawPath.size < 4 || keyCenters.size < MIN_KEY_CENTERS) return null
         val pathKeys = normalizePath(visitedKeys)
-        if (pathKeys.length < 2 || rawPath.size < 4 || keyCenters.size < 15) return null
+        if (pathKeys.length < 2) return null
         val startKey = nearestKey(rawPath.first(), keyCenters) ?: return null
         val endKey = nearestKey(rawPath.last(), keyCenters) ?: return null
         val normalizedPath = resample(rawPath, SAMPLE_COUNT)
-        // A finger trace often skips keys and crosses neighbouring keys accidentally.
-        // Use a wider lexical window, then let the actual spatial trace do the ranking.
-        val maxEdit = (pathKeys.length / 2).coerceIn(2, 8)
-        val candidates = dictionary.asSequence()
-            .filter { word ->
-                word.length in max(2, pathKeys.length - 3)..(pathKeys.length + 6) &&
-                    word.first() == startKey && word.last() == endKey
-            }
-            .map { word -> word to editDistance(pathKeys, word) }
-            .filter { (word, edits) -> edits <= max(maxEdit, word.length / 2) }
-            .sortedBy { it.second }
-            .take(MAX_GEOMETRIC_CANDIDATES)
-            .toList()
 
-        // Do not fall back to edit-distance-only guesses here: a failed geometric match must
-        // remain uncommitted instead of inserting a plausible but unrelated word.
+        // Consecutive-key collapse loses repeated letters; raw visit count keeps those words in range.
+        val minLength = max(2, min(pathKeys.length, visitedKeys.size) - 3)
+        val maxLength = max(pathKeys.length, visitedKeys.size) + 6
+        val maxEdit = (pathKeys.length / 2).coerceIn(2, 8)
+
+        // Try strict endpoints first, but retry when the strict result is absent OR fails confidence.
+        val strict = collectCandidates(startKey, endKey, minLength, maxLength, pathKeys, maxEdit, true)
+        decodeCandidates(strict, normalizedPath, keyCenters, pathKeys)?.let { return it }
+
+        val tolerant = collectCandidates(startKey, endKey, minLength, maxLength, pathKeys, maxEdit, false)
+        return decodeCandidates(tolerant, normalizedPath, keyCenters, pathKeys)
+    }
+
+    private fun decodeCandidates(
+        candidates: List<Candidate>,
+        normalizedPath: List<Point>,
+        keyCenters: Map<Char, Point>,
+        pathKeys: String
+    ): String? {
         if (candidates.isEmpty()) return null
-        val ranked = candidates.mapNotNull { (word, edits) ->
-            val template = word.map { keyCenters[it] ?: return@mapNotNull null }
+        val ranked = candidates.mapNotNull { candidate ->
+            val template = candidate.word.map { keyCenters[it] ?: return@mapNotNull null }
             val idealPath = resample(template, SAMPLE_COUNT)
             val geometry = bandedDtw(normalizedPath, idealPath)
-            // Geometric fit dominates; lexical edit distance is only a small tie-breaker.
-            word to (geometry + edits * EDIT_PENALTY)
-        }.sortedBy { it.second }
+            RankedWord(candidate.word, geometry + candidate.edits * EDIT_PENALTY)
+        }.sortedWith(compareBy<RankedWord> { it.score }.thenBy { it.word })
         if (ranked.isEmpty()) return null
         val best = ranked[0]
         val runnerUp = ranked.getOrNull(1)
-        // Reject poorly fitting paths and close ties rather than confidently inserting nonsense.
-        if (best.second > MAX_ACCEPTED_SCORE) return null
-        if (runnerUp != null && runnerUp.second - best.second < MIN_WIN_MARGIN &&
-            best.first != pathKeys && best.second > LOW_CONFIDENCE_FLOOR) return null
-        return best.first
+        if (!best.score.isFinite() || best.score > MAX_ACCEPTED_SCORE) return null
+        if (runnerUp != null &&
+            runnerUp.score - best.score < MIN_WIN_MARGIN &&
+            best.word != pathKeys &&
+            best.score > LOW_CONFIDENCE_FLOOR
+        ) return null
+        return best.word
+    }
+
+    /**
+     * Keep only the best lexical candidates in a bounded heap. Sequence.sortedBy().take(k)
+     * still sorts the entire eligible dictionary, so it does not bound selection cost.
+     */
+    private fun collectCandidates(
+        startKey: Char,
+        endKey: Char,
+        minLength: Int,
+        maxLength: Int,
+        pathKeys: String,
+        maxEdit: Int,
+        enforceEndpoints: Boolean
+    ): List<Candidate> {
+        val worstFirst = compareByDescending<Candidate> { it.edits }.thenByDescending { it.word }
+        val heap = PriorityQueue(worstFirst)
+        val limit = MAX_GEOMETRIC_CANDIDATES
+        for (word in dictionary) {
+            if (word.length !in minLength..maxLength) continue
+            if (enforceEndpoints && (word.first() != startKey || word.last() != endKey)) continue
+            val edits = editDistance(pathKeys, word)
+            if (edits > max(maxEdit, word.length / 2)) continue
+            val candidate = Candidate(word, edits)
+            if (heap.size < limit) {
+                heap.add(candidate)
+            } else if (worstFirst.compare(candidate, heap.peek()) < 0) {
+                heap.poll()
+                heap.add(candidate)
+            }
+        }
+        return heap.sortedWith(compareBy<Candidate> { it.edits }.thenBy { it.word })
     }
 
     private fun nearestKey(point: Point, centers: Map<Char, Point>): Char? =
@@ -138,7 +177,7 @@ internal object SwipeTypingEngine {
         if (a.isEmpty() || b.isEmpty()) return Double.POSITIVE_INFINITY
         val n = a.size
         val m = b.size
-        val band = max(4, abs(n - m) + 3)
+        val band = max(6, abs(n - m) + 4)
         var previous = DoubleArray(m + 1) { Double.POSITIVE_INFINITY }
         previous[0] = 0.0
         for (i in 1..n) {
@@ -177,6 +216,7 @@ internal object SwipeTypingEngine {
 
     private const val SAMPLE_COUNT = 24
     private const val MAX_GEOMETRIC_CANDIDATES = 300
+    private const val MIN_KEY_CENTERS = 15
     private const val EDIT_PENALTY = 0.006
     private const val MAX_ACCEPTED_SCORE = 0.30
     private const val MIN_WIN_MARGIN = 0.012
