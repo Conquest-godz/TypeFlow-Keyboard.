@@ -271,11 +271,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         addView(controls, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
-    private fun showAlternatesLabelFix() = Unit
-
     fun setRecentEmoji(values: List<String>) {
         recentEmoji = values.distinct().take(24)
-        if (emojiMode) showEmojiPicker()
     }
 
     fun setPreferences(haptics: Boolean, keyHeight: Int) {
