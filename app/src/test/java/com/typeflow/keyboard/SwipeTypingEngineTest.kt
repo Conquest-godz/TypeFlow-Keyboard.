@@ -6,7 +6,7 @@ import org.junit.Test
 
 class SwipeTypingEngineTest {
     @Test fun collapsesRepeatedAdjacentKeyVisits() {
-        assertEquals("hello", SwipeTypingEngine.normalizePath(listOf('h', 'e', 'e', 'l', 'l', 'o')))
+        assertEquals("helo", SwipeTypingEngine.normalizePath(listOf('h', 'e', 'e', 'l', 'l', 'o')))
     }
 
     @Test fun recognizesKnownSwipePathOffline() {
