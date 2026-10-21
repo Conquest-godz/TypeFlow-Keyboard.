@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.TextView
 
 class KeyboardView(context: Context) : LinearLayout(context) {
     private var keyListener: ((String) -> Unit)? = null
@@ -247,15 +248,36 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         ordered.chunked(8).forEach { rowValues ->
             val row = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
             rowValues.forEach { emoji ->
-                val key = createKey("E:$emoji")
-                key.contentDescription = emoji
-                key.textAlignment = TEXT_ALIGNMENT_CENTER
-                key.layoutParams = LayoutParams(0, dp(42), 1f).apply {
-                    setMargins(dp(1), dp(1), dp(1), dp(1))
+                val cell = TextView(context).apply {
+                    text = emoji
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.WHITE)
+                    contentDescription = emoji
+                    isClickable = true
+                    isFocusable = true
+                    isHapticFeedbackEnabled = true
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        cornerRadius = dp(10).toFloat()
+                        setColor(Color.rgb(44, 45, 49))
+                    }
+                    setOnTouchListener { view, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> view.alpha = 0.72f
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.alpha = 1f
+                        }
+                        false
+                    }
+                    setOnClickListener {
+                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        keyListener?.invoke("E:$emoji")
+                    }
+                    layoutParams = LayoutParams(0, dp(42), 1f).apply {
+                        setMargins(dp(1), dp(1), dp(1), dp(1))
+                    }
                 }
-                key.setOnClickListener { keyListener?.invoke("E:$emoji") }
-                keyViews.add(key)
-                row.addView(key)
+                row.addView(cell)
             }
             // Keep the final partial row aligned without adding fake emoji.
             repeat(8 - rowValues.size) {
