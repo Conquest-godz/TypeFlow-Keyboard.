@@ -23,9 +23,6 @@ class SwipeTypingEngineTest {
         assertEquals("hello", SwipeTypingEngine.recognize(listOf('h', 'e', 'l', 'o')))
     }
 
-    @Test fun resolvesRepeatedLetterGlideInsteadOfSilentlyRejectingTiedCandidates() {
-        assertEquals("hello", SwipeTypingEngine.recognize(listOf('h', 'e', 'l', 'o')))
-    }
 
     @Test fun ignoresTooShortPaths() {
         assertNull(SwipeTypingEngine.recognize(listOf('a')))
