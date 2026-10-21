@@ -2,12 +2,26 @@ package com.typeflow.keyboard
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.widget.LinearLayout
 
 class KeyboardView(context: Context) : LinearLayout(context) {
     private var keyListener: ((String) -> Unit)? = null
     private val keyViews = mutableListOf<KeyView>()
+    private val repeatHandler = Handler(Looper.getMainLooper())
+    private var backspaceRepeating = false
+
+    private val backspaceRepeat = object : Runnable {
+        override fun run() {
+            if (!backspaceRepeating) return
+            keyListener?.invoke("⌫")
+            repeatHandler.postDelayed(this, BACKSPACE_REPEAT_INTERVAL_MS)
+        }
+    }
 
     init {
         orientation = VERTICAL
@@ -18,6 +32,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     }
 
     private fun buildLayout(layout: List<List<String>>) {
+        stopBackspaceRepeat()
         removeAllViews()
         keyViews.clear()
 
@@ -44,16 +59,32 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     else -> 1f
                 }
 
-                val lp = LayoutParams(0, dp(if (rowIndex == 3) 48 else 48), weight)
+                val lp = LayoutParams(0, dp(48), weight)
                 lp.setMargins(dp(2), dp(3), dp(2), dp(3))
                 key.layoutParams = lp
-                key.setOnClickListener { keyListener?.invoke(label) }
+
+                if (label == "⌫") {
+                    key.setOnTouchListener { _, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN -> {
+                                stopBackspaceRepeat()
+                                keyListener?.invoke("⌫")
+                                backspaceRepeating = true
+                                repeatHandler.postDelayed(backspaceRepeat, BACKSPACE_REPEAT_START_DELAY_MS)
+                            }
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> stopBackspaceRepeat()
+                        }
+                        true
+                    }
+                } else {
+                    key.setOnClickListener { keyListener?.invoke(label) }
+                }
+
                 keyViews.add(key)
                 rowView.addView(key)
             }
 
-            val rowLp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
-            addView(rowView, rowLp)
+            addView(rowView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
     }
 
@@ -68,5 +99,21 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         keyViews.lastOrNull()?.setLabel(label)
     }
 
+    override fun onDetachedFromWindow() {
+        stopBackspaceRepeat()
+        keyListener = null
+        super.onDetachedFromWindow()
+    }
+
+    private fun stopBackspaceRepeat() {
+        backspaceRepeating = false
+        repeatHandler.removeCallbacks(backspaceRepeat)
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val BACKSPACE_REPEAT_START_DELAY_MS = 400L
+        const val BACKSPACE_REPEAT_INTERVAL_MS = 50L
+    }
 }
