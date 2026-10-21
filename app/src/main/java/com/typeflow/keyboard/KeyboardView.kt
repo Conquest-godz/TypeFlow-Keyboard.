@@ -245,17 +245,25 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
     }
 
-    /** Samples the whole movement segment so fast swipes don't skip keys between MotionEvents. */
+    /** Sample movement while caching key bounds once per segment to keep the IME responsive. */
     private fun sampleSwipePath(x1: Float, y1: Float, x2: Float, y2: Float, path: MutableList<Char>) {
+        val letterBounds = keyViews.mapNotNull { key ->
+            val label = key.getLabel()
+            if (label.length != 1 || !label[0].isLetter()) return@mapNotNull null
+            val location = IntArray(2)
+            key.getLocationOnScreen(location)
+            android.graphics.Rect(location[0], location[1], location[0] + key.width, location[1] + key.height) to label[0].lowercaseChar()
+        }
         val distance = kotlin.math.hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
-        val samples = (distance / dp(4).coerceAtLeast(1)).toInt().coerceIn(1, 96)
+        val samples = (distance / dp(6).coerceAtLeast(1)).toInt().coerceIn(1, 96)
         for (i in 1..samples) {
             val fraction = i.toFloat() / samples
-            val touched = findLetterAt(x1 + (x2 - x1) * fraction, y1 + (y2 - y1) * fraction)
+            val x = (x1 + (x2 - x1) * fraction).toInt()
+            val y = (y1 + (y2 - y1) * fraction).toInt()
+            val touched = letterBounds.firstOrNull { it.first.contains(x, y) }?.second
             if (touched != null && path.lastOrNull() != touched) path.add(touched)
         }
     }
-
     private fun findLetterAt(rawX: Float, rawY: Float): Char? =
         keyViews.firstOrNull { key ->
             val label = key.getLabel()
