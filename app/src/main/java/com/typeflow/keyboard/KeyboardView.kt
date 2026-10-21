@@ -242,7 +242,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
                     previewPopup?.dismiss(); previewPopup = null
                     if (swiping) {
-                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path, swipeLetterBounds)
                         appendGesturePoint(event.rawX, event.rawY, gesturePoints)
                     }
                     when {
