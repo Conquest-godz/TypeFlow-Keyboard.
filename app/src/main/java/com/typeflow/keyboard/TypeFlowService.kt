@@ -88,7 +88,7 @@ class TypeFlowService : InputMethodService() {
     }
 
     override fun onFinishInput() {
-        keyboard?.stopBackspaceRepeat()
+        keyboard?.cancelPendingGestures()
         super.onFinishInput()
         shiftState.onInputStarted(autoCapitalize = false)
         numberMode = false
@@ -136,6 +136,7 @@ class TypeFlowService : InputMethodService() {
         var end = before.length
         while (end > 0 && before[end - 1].isWhitespace()) end--
         while (end > 0 && !before[end - 1].isWhitespace()) end--
+        while (end > 0 && before[end - 1].isWhitespace()) end--
         val count = before.length - end
         if (count > 0) ic.deleteSurroundingText(count, 0)
     }
