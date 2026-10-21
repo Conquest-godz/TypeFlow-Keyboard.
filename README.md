@@ -6,7 +6,7 @@ This repository is the shared source of truth for human and AI-assisted developm
 
 ## Current status
 
-**Repository bootstrap in progress.** The repository was initially empty. The source snapshots available to this workspace are older TypeFlow Alpha-era files; they must not be mistaken for a complete, build-verified Phase G delivery. Build and device verification are still required.
+**Bootstrap baseline committed; verification is in progress.** The repository was initially empty. The source snapshots available to this workspace were older TypeFlow Alpha-era files, so this repository currently contains a reconstructed starter baseline—not a verified copy of the complete Phase G delivery. The current keyboard implementation is intentionally incomplete; see the limitations below.
 
 ## Project goals
 
@@ -19,16 +19,25 @@ This repository is the shared source of truth for human and AI-assisted developm
 
 ## Development
 
-The Android application package is intended to be `com.typeflow.keyboard`. The project uses Kotlin and Android's Input Method Service APIs.
+The Android application package is `com.typeflow.keyboard`. The project uses Kotlin and Android's Input Method Service APIs.
 
-Once the Gradle project files are in place, build with:
+This bootstrap currently does not include the Gradle wrapper. With JDK 17, Gradle 8.9, and Android SDK platform/build tools 35 installed, build with:
 
 ```bash
-./gradlew assembleDebug
-./gradlew test
+gradle assembleDebug --no-daemon
 ```
 
-These commands are instructions, not a claim that they have passed. Use a compatible JDK and install the Android SDK platform/build-tools required by the Gradle configuration.
+The GitHub Actions workflow installs these build dependencies and runs the same assemble task on pushes and pull requests. The debug APK is uploaded as a workflow artifact when the build succeeds.
+
+These commands are instructions, not a claim that a build has passed. Check the [latest workflow run](https://github.com/Conquest-godz/TypeFlow-Keyboard./actions/workflows/android-build.yml) for the actual result.
+
+## Known baseline limitations
+
+- The current code is not a full implementation of every feature previously discussed.
+- Continuous Backspace repeat, functional settings persistence, a real emoji picker, floating/one-handed modes, adjustable keyboard height, and a full active Shift/Caps visual state are not implemented yet.
+- Unit and instrumentation tests have not yet been added.
+- A successful CI build would verify compilation only; it would not establish correct behaviour on a physical device.
+- A Gradle wrapper and a project license have not yet been added.
 
 ## AI-assisted contributions
 
