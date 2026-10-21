@@ -247,7 +247,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     }
 
     fun updateEnterKey(label: String) {
-        keyViews.lastOrNull()?.let { key ->
+        keyViews.lastOrNull()?.takeIf { it.getLabel() == "↵" || it.getLabel() in listOf("Enter", "Go", "Search", "Send", "Next", "Done", "Previous") }?.let { key ->
             key.setLabel(if (label == "Enter") "↵" else label)
             key.contentDescription = label
         }
