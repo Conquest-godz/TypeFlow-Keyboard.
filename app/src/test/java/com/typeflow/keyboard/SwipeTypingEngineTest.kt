@@ -14,7 +14,6 @@ class SwipeTypingEngineTest {
         assertEquals("hello", SwipeTypingEngine.recognize(listOf('h', 'e', 'l', 'l', 'o')))
     }
 
-
     @Test fun loadsOfflineVocabularyAndRecognizesWordsOutsideSeedSet() {
         SwipeTypingEngine.loadDictionary(ByteArrayInputStream("hello\nworld\n".toByteArray()))
         assertEquals("world", SwipeTypingEngine.recognize(listOf('w', 'o', 'r', 'l', 'd')))
@@ -59,6 +58,15 @@ class SwipeTypingEngineTest {
         assertEquals("hello", SwipeTypingEngine.recognizeSpatial("helo".toList(), trace, centers))
     }
 
+    @Test fun spatialDecoderRetriesWhenNearestEndpointIsWrong() {
+        val centers = qwertyCenters()
+        val trace = "hello".map { centers.getValue(it) }.toMutableList()
+        // The first sample is nearer to the adjacent 'g' key than 'h', while the rest of the
+        // trace still matches "hello". Strict endpoint matching must not suppress the retry.
+        trace[0] = centers.getValue('g')
+        assertEquals("hello", SwipeTypingEngine.recognizeSpatial("gello".toList(), trace, centers))
+    }
+
     @Test fun spatialDecoderRejectsTooShortTrace() {
         val centers = qwertyCenters()
         assertNull(
@@ -70,4 +78,14 @@ class SwipeTypingEngineTest {
         )
     }
 
+    @Test fun spatialDecoderRejectsInsufficientKeyCenters() {
+        val centers = qwertyCenters().filterKeys { it in "hello" }
+        assertNull(
+            SwipeTypingEngine.recognizeSpatial(
+                "hello".toList(),
+                "hello".map { centers.getValue(it) },
+                centers
+            )
+        )
+    }
 }
