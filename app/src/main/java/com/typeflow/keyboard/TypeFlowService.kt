@@ -1,11 +1,11 @@
 package com.typeflow.keyboard
 
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
 import android.text.InputType
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
-import android.os.SystemClock
 
 class TypeFlowService : InputMethodService() {
     private var shiftEnabled = false
@@ -17,7 +17,6 @@ class TypeFlowService : InputMethodService() {
     override fun onCreateInputView(): View {
         val view = KeyboardView(this)
         keyboard = view
-        updateShiftAppearance()
 
         view.setKeyListener { key ->
             val ic = currentInputConnection ?: return@setKeyListener
@@ -33,7 +32,6 @@ class TypeFlowService : InputMethodService() {
                 "ABC" -> {
                     numberMode = false
                     view.showLetters()
-                    updateShiftAppearance()
                 }
                 "😀" -> {
                     // Emoji picker is not implemented in this baseline.
@@ -47,7 +45,6 @@ class TypeFlowService : InputMethodService() {
                     ic.commitText(output, 1)
                     if (shiftEnabled && !capsLock && !numberMode) {
                         shiftEnabled = false
-                        updateShiftAppearance()
                     }
                 }
             }
@@ -81,18 +78,13 @@ class TypeFlowService : InputMethodService() {
             shiftEnabled = !shiftEnabled
             lastShiftTap = now
         }
-        updateShiftAppearance()
-    }
-
-    private fun updateShiftAppearance() {
-        // State is applied when the key is next rendered; a dedicated active key style is planned.
     }
 
     private fun shouldAutoCapitalize(info: EditorInfo?): Boolean {
         val inputType = info?.inputType ?: return false
-        val variation = inputType and InputType.TYPE_MASK_CLASS
-        val textFlags = inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-        return variation == InputType.TYPE_CLASS_TEXT && textFlags != 0
+        val inputClass = inputType and InputType.TYPE_MASK_CLASS
+        val capSentenceFlag = inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        return inputClass == InputType.TYPE_CLASS_TEXT && capSentenceFlag != 0
     }
 
     private fun handleEnter(ic: InputConnection) {
@@ -104,7 +96,8 @@ class TypeFlowService : InputMethodService() {
             EditorInfo.IME_ACTION_DONE,
             EditorInfo.IME_ACTION_NEXT,
             EditorInfo.IME_ACTION_PREVIOUS -> {
-                if (!ic.performEditorAction(action)) {
+                val editorAction = action ?: EditorInfo.IME_ACTION_UNSPECIFIED
+                if (!ic.performEditorAction(editorAction)) {
                     ic.commitText("\n", 1)
                 }
             }
