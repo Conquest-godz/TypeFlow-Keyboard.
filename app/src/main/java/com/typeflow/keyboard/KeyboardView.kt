@@ -8,8 +8,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.widget.BaseAdapter
+import android.widget.GridView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 
 class KeyboardView(context: Context) : LinearLayout(context) {
@@ -238,57 +239,51 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         removeAllViews()
         keyViews.clear()
 
-        val scroll = ScrollView(context).apply {
-            isFillViewport = true
+        // GridView virtualizes emoji cells instead of allocating thousands of TextViews at once.
+        // This keeps the entire Unicode palette vertically scrollable without category tabs.
+        val ordered = (recentEmoji + UnicodeEmojiData.all).distinct()
+        val grid = GridView(context).apply {
+            numColumns = 8
+            horizontalSpacing = dp(2)
+            verticalSpacing = dp(2)
+            stretchMode = GridView.STRETCH_COLUMN_WIDTH
+            isVerticalScrollBarEnabled = true
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             contentDescription = "All emoji, scroll vertically"
-        }
-        val grid = LinearLayout(context).apply { orientation = VERTICAL }
-        val ordered = (recentEmoji + UnicodeEmojiData.all).distinct()
-        ordered.chunked(8).forEach { rowValues ->
-            val row = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
-            rowValues.forEach { emoji ->
-                val cell = TextView(context).apply {
-                    text = emoji
-                    textSize = 22f
-                    gravity = Gravity.CENTER
-                    setTextColor(Color.WHITE)
-                    contentDescription = emoji
-                    isClickable = true
-                    isFocusable = true
-                    isHapticFeedbackEnabled = true
-                    background = android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        cornerRadius = dp(10).toFloat()
-                        setColor(Color.rgb(44, 45, 49))
-                    }
-                    setOnTouchListener { view, event ->
-                        when (event.actionMasked) {
-                            MotionEvent.ACTION_DOWN -> view.alpha = 0.72f
-                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.alpha = 1f
+            adapter = object : BaseAdapter() {
+                override fun getCount(): Int = ordered.size
+                override fun getItem(position: Int): String = ordered[position]
+                override fun getItemId(position: Int): Long = position.toLong()
+                override fun hasStableIds(): Boolean = false
+
+                override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                    val cell = (convertView as? TextView) ?: TextView(context).apply {
+                        gravity = Gravity.CENTER
+                        textSize = 22f
+                        setTextColor(Color.WHITE)
+                        isClickable = false
+                        isFocusable = false
+                        isHapticFeedbackEnabled = false
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                            cornerRadius = dp(10).toFloat()
+                            setColor(Color.rgb(44, 45, 49))
                         }
-                        false
+                        setPadding(dp(1), dp(1), dp(1), dp(1))
                     }
-                    setOnClickListener {
-                        if (hapticsEnabled) performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    val emoji = getItem(position)
+                    cell.text = emoji
+                    cell.contentDescription = emoji
+                    cell.setOnClickListener {
+                        if (hapticsEnabled) it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                         keyListener?.invoke("E:$emoji")
                     }
-                    layoutParams = LayoutParams(0, dp(42), 1f).apply {
-                        setMargins(dp(1), dp(1), dp(1), dp(1))
-                    }
+                    cell.layoutParams = GridView.LayoutParams(LayoutParams.MATCH_PARENT, dp(42))
+                    return cell
                 }
-                row.addView(cell)
             }
-            // Keep the final partial row aligned without adding fake emoji.
-            repeat(8 - rowValues.size) {
-                row.addView(View(context), LayoutParams(0, dp(42), 1f).apply {
-                    setMargins(dp(1), dp(1), dp(1), dp(1))
-                })
-            }
-            grid.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
-        scroll.addView(grid, android.widget.FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-        addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
+        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
         listOf("ABC", "⌫").forEach { label ->
