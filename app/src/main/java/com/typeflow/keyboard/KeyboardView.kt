@@ -116,7 +116,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 MotionEvent.ACTION_MOVE -> {
                     val delta = event.rawX - previousX
                     accumulatedX += delta
-                    totalTravelX += delta
+                    totalTravelX += kotlin.math.abs(delta)
                     previousX = event.rawX
                     if (kotlin.math.abs(totalTravelX) > touchSlop) moved = true
                     // Gboard-like cursor scrubbing should respond to a short, deliberate slide;
@@ -284,7 +284,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         keyViews.clear()
 
         // GridView virtualizes emoji cells instead of allocating thousands of TextViews at once.
-        // This keeps the entire Unicode palette vertically scrollable without category tabs.
+        // Category chips navigate the complete vertically scrollable Unicode palette.
         val categoryNames = listOf("Recent", "Smileys", "People", "Animals", "Food", "Travel", "Activities", "Objects", "Symbols", "Flags")
         val categoryIcons = listOf("◷", "☺", "☻", "🐻", "🍎", "🚗", "⚽", "💡", "♥", "🏳")
         fun loadEmojiCategory(index: Int) {
