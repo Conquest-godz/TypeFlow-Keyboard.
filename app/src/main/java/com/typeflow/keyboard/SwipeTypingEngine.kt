@@ -57,7 +57,8 @@ internal object SwipeTypingEngine {
         // Prefer words with matching endpoints, then edit distance and frequency order
         // (the bundled word list is frequency-ranked).
         // Round up: short, fast swipes can miss multiple intermediate keys.
-        // For example, `h-e-o` is a valid sparse trace for `hello` (distance 2).\n        val maxDistance = ((normalized.length + 1) / 2).coerceIn(1, 5)
+        // For example, `h-e-o` is a valid sparse trace for `hello` (distance 2).
+        val maxDistance = ((normalized.length + 1) / 2).coerceIn(1, 5)
         var bestWord: String? = null
         var bestScore = Int.MAX_VALUE
         var secondScore = Int.MAX_VALUE
