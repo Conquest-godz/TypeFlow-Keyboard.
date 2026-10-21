@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.widget.LinearLayout
+import android.widget.ScrollView
 
 class KeyboardView(context: Context) : LinearLayout(context) {
     private var keyListener: ((String) -> Unit)? = null
@@ -17,7 +18,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var backspaceRepeating = false
     private var hapticsEnabled = true
     private var keyHeightDp = 48
-    private var emojiCategory = "Smileys"
+    private var emojiMode = false
     private var recentEmoji: List<String> = emptyList()
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
@@ -37,31 +38,18 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     }
 
     private fun buildLayout(layout: List<List<String>>) {
+        emojiMode = false
         stopBackspaceRepeat()
         removeAllViews()
         keyViews.clear()
         layout.forEach { row ->
             val rowView = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
             row.forEach { label ->
-                val key = KeyView(context, label).apply {
-                    hapticsEnabled = this@KeyboardView.hapticsEnabled
-                    keyHeightDp = this@KeyboardView.keyHeightDp
-                    contentDescription = when {
-                        label == "SPACE" -> "Space"
-                        label == "⌫" -> "Backspace"
-                        label == "⇧" -> "Shift"
-                        label == "↵" -> "Enter"
-                        label == "😀" -> "Open emoji picker"
-                        label.startsWith("E:") -> label.removePrefix("E:")
-                        label.startsWith("CAT:") -> "Emoji category " + label.removePrefix("CAT:")
-                        else -> label
-                    }
-                }
+                val key = createKey(label)
                 val weight = when {
                     label == "SPACE" -> 4.2f
                     label in listOf("⇧", "⌫", "↵", "?123", "ABC") -> 1.45f
                     label == "😀" -> 1.15f
-                    label.startsWith("CAT:") -> 0.9f
                     else -> 1f
                 }
                 key.layoutParams = LayoutParams(0, dp(keyHeightDp), weight).apply {
@@ -71,16 +59,26 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     label == "SPACE" -> installSpaceGesture(key)
                     label == "⌫" -> installBackspaceGesture(key)
                     label.length == 1 && label[0].isLetter() -> installLetterGesture(key, label)
-                    label.startsWith("CAT:") -> key.setOnClickListener {
-                        emojiCategory = label.removePrefix("CAT:")
-                        showEmojiCategory(emojiCategory)
-                    }
                     else -> key.setOnClickListener { keyListener?.invoke(label) }
                 }
                 keyViews.add(key)
                 rowView.addView(key)
             }
             addView(rowView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
+    }
+
+    private fun createKey(label: String): KeyView = KeyView(context, label).apply {
+        hapticsEnabled = this@KeyboardView.hapticsEnabled
+        keyHeightDp = this@KeyboardView.keyHeightDp
+        contentDescription = when {
+            label == "SPACE" -> "Space"
+            label == "⌫" -> "Backspace"
+            label == "⇧" -> "Shift"
+            label == "↵" -> "Enter"
+            label == "😀" -> "Open emoji picker"
+            label.startsWith("E:") -> label.removePrefix("E:")
+            else -> label
         }
     }
 
@@ -133,16 +131,18 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
     }
 
-    private fun installLetterGesture(key: KeyView, label: String) {
+    private fun installLetterGesture(key: KeyView, originalLabel: String) {
         var downX = 0f
         var downY = 0f
+        var previousX = 0f
+        var previousY = 0f
         var swiping = false
         var longPressed = false
         var pendingAlternates: List<String>? = null
-        var path = mutableListOf<Char>()
+        var path = mutableListOf(originalLabel.lowercase()[0])
         val longPress = Runnable {
-            val options = KeyboardLayout.alternates[label.lowercase()]
-            if (!options.isNullOrEmpty()) {
+            val options = KeyboardLayout.alternates[originalLabel.lowercase()]
+            if (!options.isNullOrEmpty() && !swiping) {
                 longPressed = true
                 key.setTouchFeedback(true, performHaptic = true)
                 pendingAlternates = options
@@ -152,19 +152,21 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY
+                    previousX = downX; previousY = downY
                     swiping = false; longPressed = false; pendingAlternates = null
-                    path = mutableListOf(label.lowercase()[0])
+                    path = mutableListOf(originalLabel.lowercase()[0])
                     key.setTouchFeedback(true, performHaptic = true)
                     repeatHandler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (kotlin.math.abs(event.rawX - downX) > touchSlop ||
-                        kotlin.math.abs(event.rawY - downY) > touchSlop) repeatHandler.removeCallbacks(longPress)
-                    if (kotlin.math.abs(event.rawX - downX) > touchSlop * 1.4f) swiping = true
-                    if (swiping) {
-                        val touched = findLetterAt(event.rawX, event.rawY)
-                        if (touched != null && path.lastOrNull() != touched) path.add(touched)
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
+                        repeatHandler.removeCallbacks(longPress)
                     }
+                    if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop * 1.35) swiping = true
+                    if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                    previousX = event.rawX; previousY = event.rawY
                 }
                 MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
@@ -172,9 +174,10 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
                         swiping && path.size >= 3 -> {
                             val word = SwipeTypingEngine.recognize(path)
-                            if (word != null) keyListener?.invoke("SWIPEWORD:$word") else keyListener?.invoke(label)
+                            if (word != null) keyListener?.invoke("SWIPEWORD:$word")
+                            else keyListener?.invoke(originalLabel)
                         }
-                        else -> keyListener?.invoke(label)
+                        else -> keyListener?.invoke(originalLabel)
                     }
                 }
                 MotionEvent.ACTION_CANCEL -> {
@@ -182,6 +185,17 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
             }
             true
+        }
+    }
+
+    /** Samples the whole movement segment so fast swipes don't skip keys between MotionEvents. */
+    private fun sampleSwipePath(x1: Float, y1: Float, x2: Float, y2: Float, path: MutableList<Char>) {
+        val distance = kotlin.math.hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
+        val samples = (distance / dp(8).coerceAtLeast(1)).toInt().coerceIn(1, 64)
+        for (i in 1..samples) {
+            val fraction = i.toFloat() / samples
+            val touched = findLetterAt(x1 + (x2 - x1) * fraction, y1 + (y2 - y1) * fraction)
+            if (touched != null && path.lastOrNull() != touched) path.add(touched)
         }
     }
 
@@ -205,18 +219,63 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
     }
 
-    private fun showEmojiCategory(category: String) {
-        val values = if (category == "Recent") recentEmoji.ifEmpty {
-            KeyboardLayout.emojiCategories["Recent"].orEmpty()
-        } else KeyboardLayout.emojiCategories[category] ?: KeyboardLayout.emojiCategories["Smileys"]!!
-        val rows = values.map { "E:$it" }.chunked(8).toMutableList()
-        rows.add(listOf("ABC", "CAT:Recent", "CAT:Smileys", "CAT:Gestures", "CAT:Hearts", "CAT:Symbols", "⌫"))
-        buildLayout(rows)
+    /** One continuous, vertically scrollable Unicode emoji palette; there are no category tabs. */
+    private fun showEmojiPicker() {
+        emojiMode = true
+        stopBackspaceRepeat()
+        removeAllViews()
+        keyViews.clear()
+
+        val scroll = ScrollView(context).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            contentDescription = "All emoji, scroll vertically"
+        }
+        val grid = LinearLayout(context).apply { orientation = VERTICAL }
+        val ordered = (recentEmoji + UnicodeEmojiData.all).distinct()
+        ordered.chunked(8).forEach { rowValues ->
+            val row = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
+            rowValues.forEach { emoji ->
+                val key = createKey("E:$emoji")
+                key.contentDescription = emoji
+                key.textAlignment = TEXT_ALIGNMENT_CENTER
+                key.layoutParams = LayoutParams(0, dp(42), 1f).apply {
+                    setMargins(dp(1), dp(1), dp(1), dp(1))
+                }
+                key.setOnClickListener { keyListener?.invoke("E:$emoji") }
+                keyViews.add(key)
+                row.addView(key)
+            }
+            // Keep the final partial row aligned without adding fake emoji.
+            repeat(8 - rowValues.size) {
+                row.addView(View(context), LayoutParams(0, dp(42), 1f).apply {
+                    setMargins(dp(1), dp(1), dp(1), dp(1))
+                })
+            }
+            grid.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
+        scroll.addView(grid, ScrollView.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
+
+        val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
+        listOf("ABC", "⌫").forEach { label ->
+            val key = createKey(label)
+            key.layoutParams = LayoutParams(0, dp(keyHeightDp), if (label == "ABC") 2f else 1.4f).apply {
+                setMargins(dp(2), dp(3), dp(2), dp(3))
+            }
+            if (label == "⌫") installBackspaceGesture(key)
+            else key.setOnClickListener { keyListener?.invoke("ABC") }
+            keyViews.add(key)
+            controls.addView(key)
+        }
+        addView(controls, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
 
+    private fun showAlternatesLabelFix() = Unit
+
     fun setRecentEmoji(values: List<String>) {
-        recentEmoji = values
-        if (emojiCategory == "Recent") showEmojiCategory("Recent")
+        recentEmoji = values.distinct().take(24)
+        if (emojiMode) showEmojiPicker()
     }
 
     fun setPreferences(haptics: Boolean, keyHeight: Int) {
@@ -227,7 +286,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     fun showLetters() = buildLayout(KeyboardLayout.letters)
     fun showNumbers() = buildLayout(KeyboardLayout.numbers)
-    fun showEmoji() = showEmojiCategory(emojiCategory)
+    fun showEmoji() = showEmojiPicker()
     fun setKeyListener(listener: (String) -> Unit) { keyListener = listener }
 
     internal fun setShiftState(state: ShiftStateMachine.State) {
