@@ -96,7 +96,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     accumulatedX += event.rawX - previousX
                     previousX = event.rawX
                     if (kotlin.math.abs(accumulatedX) > touchSlop) moved = true
-                    val threshold = (key.width / 2f).coerceAtLeast(1f)
+                    val threshold = (key.width / 8f).coerceAtLeast(dp(12).toFloat())
                     val steps = GestureMath.cursorSteps(accumulatedX, threshold)
                     if (steps != 0) {
                         keyListener?.invoke("CURSOR:$steps")
