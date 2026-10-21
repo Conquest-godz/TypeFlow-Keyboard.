@@ -67,8 +67,8 @@ class TypeFlowService : InputMethodService() {
         if (!restarting) {
             shiftState.onInputStarted(shouldAutoCapitalize(attribute))
             numberMode = false
-            syncShiftState()
         }
+        syncShiftState()
     }
 
     override fun onFinishInput() {
