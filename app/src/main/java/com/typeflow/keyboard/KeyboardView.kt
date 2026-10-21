@@ -95,7 +95,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         keyListener = listener
     }
 
-    fun setShiftState(state: ShiftStateMachine.State) {
+    internal fun setShiftState(state: ShiftStateMachine.State) {
         val shifted = state != ShiftStateMachine.State.OFF
         keyViews.forEach { key ->
             val label = key.getLabel()
