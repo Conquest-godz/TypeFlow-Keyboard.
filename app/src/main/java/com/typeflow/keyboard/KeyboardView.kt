@@ -103,7 +103,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 key.setLabel(if (shifted) label.uppercase() else label.lowercase())
             }
             if (label == "⇧") {
-                key.isSelected = state != ShiftStateMachine.State.OFF
+                key.setShiftActive(state != ShiftStateMachine.State.OFF)
                 key.contentDescription = when (state) {
                     ShiftStateMachine.State.OFF -> "Shift off"
                     ShiftStateMachine.State.SHIFT -> "Shift on"
