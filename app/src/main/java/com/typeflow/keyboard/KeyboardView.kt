@@ -77,7 +77,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         true
                     }
                 } else {
-                    key.setOnClickListener { keyListener?.invoke(key.getLabel()) }
+                    key.setOnClickListener { keyListener?.invoke(label) }
                 }
 
                 keyViews.add(key)
