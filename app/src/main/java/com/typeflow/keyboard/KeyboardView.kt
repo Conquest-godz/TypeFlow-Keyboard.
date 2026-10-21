@@ -237,14 +237,15 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
                 MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
+                    if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
                     when {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
-                        swiping && path.size >= 3 -> {
+                        swiping -> {
                             // Only commit a dictionary-recognized word. Inserting the raw path
                             // would turn a missed recognition into visible gibberish.
-                            SwipeTypingEngine.recognize(path)?.let { keyListener?.invoke("SWIPEWORD:$it") }
+                            if (path.size >= 3) SwipeTypingEngine.recognize(path)?.let { keyListener?.invoke("SWIPEWORD:$it") }
                         }
-                        else -> keyListener?.invoke(originalLabel)
+                        !swiping -> keyListener?.invoke(originalLabel)
                     }
                 }
                 MotionEvent.ACTION_CANCEL -> {
@@ -258,7 +259,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     /** Samples the whole movement segment so fast swipes don't skip keys between MotionEvents. */
     private fun sampleSwipePath(x1: Float, y1: Float, x2: Float, y2: Float, path: MutableList<Char>) {
         val distance = kotlin.math.hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
-        val samples = (distance / dp(8).coerceAtLeast(1)).toInt().coerceIn(1, 64)
+        val samples = (distance / dp(4).coerceAtLeast(1)).toInt().coerceIn(1, 96)
         for (i in 1..samples) {
             val fraction = i.toFloat() / samples
             val touched = findLetterAt(x1 + (x2 - x1) * fraction, y1 + (y2 - y1) * fraction)
