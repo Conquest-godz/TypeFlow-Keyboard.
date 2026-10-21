@@ -32,6 +32,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var recentEmoji: List<String> = emptyList()
     private var emojiItems: List<String> = emptyList()
     private var emojiAdapter: BaseAdapter? = null
+    private var emojiGrid: GridView? = null
+    private var emojiCategory = 0
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
         override fun run() {
@@ -59,6 +61,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     private fun buildLayout(layout: List<List<String>>) {
         emojiMode = false
+        emojiGrid = null
+        emojiCategory = 0
         emojiAdapter = null
         emojiItems = emptyList()
         stopBackspaceRepeat()
@@ -291,7 +295,66 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
         // GridView virtualizes emoji cells instead of allocating thousands of TextViews at once.
         // This keeps the entire Unicode palette vertically scrollable without category tabs.
-        emojiItems = (recentEmoji + UnicodeEmojiData.all).distinct()
+        val categoryNames = listOf("Recent", "Smileys", "People", "Animals", "Food", "Travel", "Activities", "Objects", "Symbols", "Flags")
+        val categoryIcons = listOf("◷", "☺", "☻", "🐻", "🍎", "🚗", "⚽", "💡", "♥", "🏳")
+        fun loadEmojiCategory(index: Int) {
+            emojiCategory = index
+            emojiItems = if (index == 0) recentEmoji else UnicodeEmojiData.all.filter { emoji ->
+                val cp = emoji.codePointAt(0)
+                when (index) {
+                    1 -> cp in 0x1F600..0x1F64F || cp in 0x1F910..0x1F92F || cp in 0x1F970..0x1F97A || cp in 0x1F9D0..0x1F9E6
+                    2 -> cp in 0x1F440..0x1F487 || cp in 0x1F590..0x1F5FF || cp in 0x1F900..0x1F9CF
+                    3 -> cp in 0x1F400..0x1F43F || cp in 0x1F980..0x1F9AE || cp in 0x1F990..0x1F9A2
+                    4 -> cp in 0x1F32D..0x1F37F || cp in 0x1F950..0x1F96F
+                    5 -> cp in 0x1F680..0x1F6FF || cp in 0x1F300..0x1F320
+                    6 -> cp in 0x1F3A0..0x1F3FF || cp in 0x1F93C..0x1F945
+                    7 -> cp in 0x1F4A0..0x1F4FF || cp in 0x1F3E0..0x1F3EF || cp in 0x1F9E0..0x1F9FF
+                    8 -> cp in 0x2600..0x27BF || cp in 0x1FA70..0x1FAFF
+                    9 -> cp in 0x1F1E6..0x1F1FF
+                    else -> false
+                }
+            }
+            emojiAdapter?.notifyDataSetChanged()
+            emojiGrid?.smoothScrollToPosition(0)
+        }
+        val categoryBar = android.widget.HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val categoryRow = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        categoryNames.indices.forEach { index ->
+            val chip = TextView(context).apply {
+                text = categoryIcons[index]
+                textSize = 20f
+                gravity = Gravity.CENTER
+                contentDescription = categoryNames[index]
+                setTextColor(Color.WHITE)
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                setOnClickListener {
+                    loadEmojiCategory(index)
+                    for (i in 0 until categoryRow.childCount) {
+                        val item = categoryRow.getChildAt(i) as TextView
+                        item.background = android.graphics.drawable.GradientDrawable().apply {
+                            cornerRadius = dp(18).toFloat()
+                            setColor(if (i == index) Color.rgb(76, 86, 112) else Color.rgb(38, 39, 43))
+                        }
+                    }
+                }
+            }
+            categoryRow.addView(chip, LayoutParams(LayoutParams.WRAP_CONTENT, dp(42)).apply {
+                setMargins(dp(3), dp(2), dp(3), dp(2))
+            })
+        }
+        categoryBar.addView(categoryRow)
+        addView(categoryBar, LayoutParams(LayoutParams.MATCH_PARENT, dp(46)))
+        loadEmojiCategory(emojiCategory)
+        for (i in 0 until categoryRow.childCount) {
+            val item = categoryRow.getChildAt(i) as TextView
+            item.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(if (i == emojiCategory) Color.rgb(76, 86, 112) else Color.rgb(38, 39, 43))
+            }
+        }
         val grid = GridView(context).apply {
             numColumns = 8
             horizontalSpacing = dp(2)
@@ -333,8 +396,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
             }
         }
+        emojiGrid = grid
         emojiAdapter = grid.adapter as? BaseAdapter
-        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
+        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
         listOf("ABC", "⌫").forEach { label ->
@@ -353,8 +417,10 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     fun setRecentEmoji(values: List<String>) {
         recentEmoji = values.distinct().take(24)
         if (emojiMode) {
-            emojiItems = (recentEmoji + UnicodeEmojiData.all).distinct()
-            emojiAdapter?.notifyDataSetChanged()
+            if (emojiCategory == 0) {
+                emojiItems = recentEmoji
+                emojiAdapter?.notifyDataSetChanged()
+            }
         }
     }
 
