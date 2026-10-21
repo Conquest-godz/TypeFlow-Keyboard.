@@ -83,7 +83,7 @@ internal object SwipeTypingEngine {
                 word.length in max(2, pathKeys.length - maxEdit)..(pathKeys.length + maxEdit) &&
                     word.first() == startKey && word.last() == endKey
             }
-            .map { word -> word to editDistance(pathKeys, word) }
+            .map { word -> word to editDistance(pathKeys.toList(), word) }
             .filter { it.second <= maxEdit }
             .sortedBy { it.second }
             .take(MAX_GEOMETRIC_CANDIDATES)
