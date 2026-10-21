@@ -12,21 +12,21 @@ import android.widget.TextView
 
 class KeyView(context: Context, private var label: String) : LinearLayout(context) {
     private val textView = TextView(context)
+    private var pressed = false
+    private var shiftActive = false
 
     init {
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
         minimumHeight = dp(44)
-
         textView.text = displayLabel(label)
         textView.gravity = Gravity.CENTER
         textView.textSize = 16f
         textView.typeface = Typeface.DEFAULT_BOLD
         textView.setTextColor(Color.WHITE)
         addView(textView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-
-        refreshBackground(false)
+        refreshBackground()
     }
 
     fun getLabel(): String = label
@@ -36,22 +36,36 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
         textView.text = displayLabel(value)
     }
 
+    fun setShiftActive(active: Boolean) {
+        shiftActive = active
+        refreshBackground()
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                refreshBackground(true)
+                pressed = true
+                refreshBackground()
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> refreshBackground(false)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                pressed = false
+                refreshBackground()
+            }
         }
         return super.onTouchEvent(event)
     }
 
-    private fun refreshBackground(pressed: Boolean) {
+    private fun refreshBackground() {
+        val color = when {
+            pressed -> "#48484A"
+            shiftActive -> "#666668"
+            else -> "#2C2C2E"
+        }
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(10).toFloat()
-            setColor(Color.parseColor(if (pressed) "#48484A" else "#2C2C2E"))
+            setColor(Color.parseColor(color))
         }
         elevation = dp(2).toFloat()
     }
