@@ -47,6 +47,7 @@ class TypeFlowService : InputMethodService() {
                     preferences.rememberEmoji(emoji)
                     view.setRecentEmoji(preferences.recentEmoji())
                     view.showLetters()
+                    syncShiftState()
                 }
                 key.startsWith("SWIPEWORD:") -> {
                     val word = key.removePrefix("SWIPEWORD:")
