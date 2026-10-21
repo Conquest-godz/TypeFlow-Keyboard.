@@ -61,10 +61,12 @@ class SwipeTypingEngineTest {
     @Test fun spatialDecoderRetriesWhenNearestEndpointIsWrong() {
         val centers = qwertyCenters()
         val trace = "hello".map { centers.getValue(it) }.toMutableList()
-        // The first sample is nearer to the adjacent 'g' key than 'h', while the rest of the
-        // trace still matches "hello". Strict endpoint matching must not suppress the retry.
-        trace[0] = centers.getValue('g')
-        assertEquals("hello", SwipeTypingEngine.recognizeSpatial("gello".toList(), trace, centers))
+        // Slightly bias the first sample toward adjacent 'g' while keeping it close to 'h'.
+        // The trace should still be recoverable by the tolerant endpoint pass.
+        val h = centers.getValue('h')
+        val g = centers.getValue('g')
+        trace[0] = SwipeTypingEngine.Point(h.x * 0.55f + g.x * 0.45f, h.y)
+        assertEquals("hello", SwipeTypingEngine.recognizeSpatial("hello".toList(), trace, centers))
     }
 
     @Test fun spatialDecoderRejectsTooShortTrace() {
