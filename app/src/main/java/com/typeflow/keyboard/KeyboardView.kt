@@ -197,6 +197,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         var longPressed = false
         var pendingAlternates: List<String>? = null
         var path = mutableListOf(originalLabel.lowercase()[0])
+        var gesturePoints = mutableListOf<SwipeTypingEngine.Point>()
         var previewPopup: PopupWindow? = null
         val longPress = Runnable {
             val options = KeyboardLayout.alternates[originalLabel.lowercase()]
@@ -213,6 +214,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     previousX = downX; previousY = downY
                     swiping = false; longPressed = false; pendingAlternates = null
                     path = mutableListOf(originalLabel.lowercase()[0])
+                    gesturePoints = mutableListOf(normalizedGesturePoint(event.rawX, event.rawY))
                     key.setTouchFeedback(true, performHaptic = true)
                     previewPopup?.dismiss()
                     previewPopup = showLetterPreview(key, originalLabel)
@@ -227,19 +229,28 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         previewPopup = null
                     }
                     if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop * 1.35) swiping = true
-                    if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                    if (swiping) {
+                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                        appendGesturePoint(event.rawX, event.rawY, gesturePoints)
+                    }
                     previousX = event.rawX; previousY = event.rawY
                 }
                 MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
                     previewPopup?.dismiss(); previewPopup = null
-                    if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                    if (swiping) {
+                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                        appendGesturePoint(event.rawX, event.rawY, gesturePoints)
+                    }
                     when {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
                         swiping -> {
                             // Only commit a dictionary-recognized word. Inserting the raw path
                             // would turn a missed recognition into visible gibberish.
-                            if (path.size >= 3) SwipeTypingEngine.recognize(path)?.let { keyListener?.invoke("SWIPEWORD:$it") }
+                            if (gesturePoints.size >= 4) {
+                                SwipeTypingEngine.recognizeSpatial(path, gesturePoints, keyCenterMap())
+                                    ?.let { keyListener?.invoke("SWIPEWORD:$it") }
+                            }
                         }
                         !swiping -> keyListener?.invoke(originalLabel)
                     }
@@ -277,6 +288,42 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         // windows on some Android versions and can place previews at the bottom of the keyboard.
         popup.showAsDropDown(key, (key.width - dp(48)) / 2, -key.height - dp(58), Gravity.START)
         return popup
+    }
+
+    private fun normalizedGesturePoint(rawX: Float, rawY: Float): SwipeTypingEngine.Point {
+        val origin = IntArray(2)
+        getLocationOnScreen(origin)
+        return SwipeTypingEngine.Point(
+            ((rawX - origin[0]) / width.coerceAtLeast(1)).coerceIn(0f, 1f),
+            ((rawY - origin[1]) / height.coerceAtLeast(1)).coerceIn(0f, 1f)
+        )
+    }
+
+    private fun appendGesturePoint(rawX: Float, rawY: Float, points: MutableList<SwipeTypingEngine.Point>) {
+        val point = normalizedGesturePoint(rawX, rawY)
+        val last = points.lastOrNull()
+        if (last == null || kotlin.math.hypot((point.x - last.x).toDouble(), (point.y - last.y).toDouble()) >= 0.004) {
+            points.add(point)
+        }
+        // Bound memory and decoding cost for long, shaky swipes.
+        if (points.size > 180) {
+            val reduced = points.filterIndexed { index, _ -> index % 2 == 0 }.toMutableList()
+            points.clear(); points.addAll(reduced)
+        }
+    }
+
+    private fun keyCenterMap(): Map<Char, SwipeTypingEngine.Point> {
+        val origin = IntArray(2)
+        getLocationOnScreen(origin)
+        return keyViews.mapNotNull { key ->
+            val label = key.getLabel()
+            if (label.length != 1 || !label[0].isLetter()) return@mapNotNull null
+            val loc = IntArray(2); key.getLocationOnScreen(loc)
+            label.lowercaseChar() to SwipeTypingEngine.Point(
+                ((loc[0] + key.width / 2f - origin[0]) / width.coerceAtLeast(1)).coerceIn(0f, 1f),
+                ((loc[1] + key.height / 2f - origin[1]) / height.coerceAtLeast(1)).coerceIn(0f, 1f)
+            )
+        }.toMap()
     }
 
     /** Sample movement while caching key bounds once per segment to keep the IME responsive. */
