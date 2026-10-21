@@ -19,6 +19,7 @@ class TypeFlowService : InputMethodService() {
         super.onCreate()
         preferences = KeyboardPreferences(this)
         clipboardHistory = ClipboardHistoryStore(this)
+        runCatching { SwipeTypingEngine.loadDictionary(assets.open("words.txt")) }
     }
 
     override fun onCreateInputView(): View {
@@ -46,7 +47,7 @@ class TypeFlowService : InputMethodService() {
                     ic.commitText(emoji, 1)
                     preferences.rememberEmoji(emoji)
                     view.setRecentEmoji(preferences.recentEmoji())
-                    view.showLetters()
+                    view.showEmoji()
                     syncShiftState()
                 }
                 key.startsWith("SWIPEWORD:") -> {
