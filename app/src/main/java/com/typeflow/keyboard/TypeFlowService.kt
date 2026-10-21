@@ -6,12 +6,14 @@ import android.text.InputType
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 
 class TypeFlowService : InputMethodService() {
     private val shiftState = ShiftStateMachine(ViewConfiguration.getDoubleTapTimeout().toLong())
     private var numberMode = false
     private var keyboard: KeyboardView? = null
+    private var deletePreviewAnchor: Int? = null
     private lateinit var preferences: KeyboardPreferences
     private lateinit var clipboardHistory: ClipboardHistoryStore
 
@@ -62,6 +64,9 @@ class TypeFlowService : InputMethodService() {
                 key == "SPACE" -> { ic.commitText(" ", 1); shiftState.onCharacterCommitted(); syncShiftState() }
                 key == "⌫" -> deleteBackward(ic)
                 key == "DELETE_WORD" -> deletePreviousWord(ic)
+                key.startsWith("DELETE_PREVIEW:") -> previewDelete(ic, key.removePrefix("DELETE_PREVIEW:").toIntOrNull() ?: 1)
+                key == "DELETE_PREVIEW_COMMIT" -> commitDeletePreview(ic)
+                key == "DELETE_PREVIEW_CANCEL" -> cancelDeletePreview(ic)
                 key == "↵" || key in listOf("Go", "Search", "Send", "Next", "Done", "Previous") -> handleEnter(ic)
                 key == "⇧" -> { shiftState.onShiftTap(SystemClock.uptimeMillis()); syncShiftState() }
                 else -> {
@@ -93,6 +98,7 @@ class TypeFlowService : InputMethodService() {
 
     override fun onFinishInput() {
         keyboard?.cancelPendingGestures()
+        currentInputConnection?.let { cancelDeletePreview(it) }
         super.onFinishInput()
         shiftState.onInputStarted(autoCapitalize = false)
         numberMode = false
@@ -129,6 +135,32 @@ class TypeFlowService : InputMethodService() {
         else ic.deleteSurroundingTextInCodePoints(1, 0)
     }
 
+    /** Highlight the range that a backspace drag will remove; commit only on release. */
+    private fun previewDelete(ic: InputConnection, requestedCharacters: Int) {
+        if (deletePreviewAnchor == null) {
+            val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
+            if (extracted.selectionStart < 0 || extracted.selectionEnd < 0 || extracted.selectionStart != extracted.selectionEnd) return
+            deletePreviewAnchor = extracted.startOffset + extracted.selectionEnd
+        }
+        val anchor = deletePreviewAnchor ?: return
+        val before = ic.getTextBeforeCursor(512, 0)?.toString().orEmpty()
+        if (before.isEmpty()) return
+        val count = requestedCharacters.coerceAtLeast(1).coerceAtMost(before.codePointCount(0, before.length))
+        var startIndex = before.length
+        repeat(count) { if (startIndex > 0) startIndex -= Character.charCount(before.codePointBefore(startIndex)) }
+        val absoluteStart = anchor - (before.length - startIndex)
+        if (absoluteStart >= 0) ic.setSelection(absoluteStart, anchor)
+    }
+
+    private fun commitDeletePreview(ic: InputConnection) {
+        if (deletePreviewAnchor != null) ic.commitText("", 1)
+        deletePreviewAnchor = null
+    }
+
+    private fun cancelDeletePreview(ic: InputConnection) {
+        deletePreviewAnchor?.let { ic.setSelection(it, it) }
+        deletePreviewAnchor = null
+    }
     private fun deletePreviousWord(ic: InputConnection) {
         val selectedText = ic.getSelectedText(0)
         if (!selectedText.isNullOrEmpty()) {
