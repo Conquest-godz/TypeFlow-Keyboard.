@@ -138,11 +138,23 @@ class TypeFlowService : InputMethodService() {
         val before = ic.getTextBeforeCursor(256, 0)?.toString().orEmpty()
         if (before.isEmpty()) return
         var end = before.length
-        while (end > 0 && before[end - 1].isWhitespace()) end--
-        while (end > 0 && !before[end - 1].isWhitespace()) end--
-        while (end > 0 && before[end - 1].isWhitespace()) end--
-        val count = before.length - end
-        if (count > 0) ic.deleteSurroundingText(count, 0)
+        while (end > 0) {
+            val codePoint = before.codePointBefore(end)
+            if (!Character.isWhitespace(codePoint)) break
+            end -= Character.charCount(codePoint)
+        }
+        while (end > 0) {
+            val codePoint = before.codePointBefore(end)
+            if (Character.isWhitespace(codePoint)) break
+            end -= Character.charCount(codePoint)
+        }
+        while (end > 0) {
+            val codePoint = before.codePointBefore(end)
+            if (!Character.isWhitespace(codePoint)) break
+            end -= Character.charCount(codePoint)
+        }
+        val count = before.codePointCount(end, before.length)
+        if (count > 0) ic.deleteSurroundingTextInCodePoints(count, 0)
     }
 
     private fun handleEnter(ic: InputConnection) {
