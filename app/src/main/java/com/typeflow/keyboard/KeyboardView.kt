@@ -348,7 +348,21 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             val fraction = i.toFloat() / samples
             val x = (x1 + (x2 - x1) * fraction).toInt()
             val y = (y1 + (y2 - y1) * fraction).toInt()
+            // Prefer exact hit-testing, then bridge the small physical gaps between keys by
+            // assigning the sample to its nearest key centre. Fast swipes otherwise jump across
+            // gaps and silently omit letters from the lexical candidate path.
             val touched = letterBounds.firstOrNull { it.first.contains(x, y) }?.second
+                ?: letterBounds.minByOrNull { (rect, _) ->
+                    kotlin.math.hypot(
+                        (x - (rect.left + rect.right) / 2f).toDouble(),
+                        (y - (rect.top + rect.bottom) / 2f).toFloat().toDouble()
+                    )
+                }?.let { (rect, letter) ->
+                    val dx = x - (rect.left + rect.right) / 2f
+                    val dy = y - (rect.top + rect.bottom) / 2f
+                    val radius = maxOf(rect.width(), rect.height()) * 0.72f
+                    letter.takeIf { kotlin.math.hypot(dx.toDouble(), dy.toDouble()) <= radius }
+                }
             if (touched != null && path.lastOrNull() != touched) path.add(touched)
         }
     }
