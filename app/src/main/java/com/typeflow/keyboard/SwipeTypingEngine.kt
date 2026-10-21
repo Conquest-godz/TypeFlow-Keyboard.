@@ -162,7 +162,10 @@ internal object SwipeTypingEngine {
         var segment = 1
         for (i in 0 until count) {
             val target = total * i / (count - 1).coerceAtLeast(1)
-            while (segment < cumulative.lastIndex - 1 && cumulative[segment] < target) segment++
+            // Advance through the final segment too. Stopping at lastIndex - 1 silently
+            // truncated every resampled path before its actual endpoint, weakening endpoint
+            // evidence for words such as "hello" vs "help".
+            while (segment < cumulative.lastIndex && cumulative[segment] < target) segment++
             val before = cumulative[segment - 1]
             val span = (cumulative[segment] - before).coerceAtLeast(1e-8)
             val t = ((target - before) / span).coerceIn(0.0, 1.0).toFloat()
