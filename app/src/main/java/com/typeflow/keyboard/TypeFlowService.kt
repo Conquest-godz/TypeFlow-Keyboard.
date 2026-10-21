@@ -126,6 +126,11 @@ class TypeFlowService : InputMethodService() {
     }
 
     private fun deletePreviousWord(ic: InputConnection) {
+        val selectedText = ic.getSelectedText(0)
+        if (!selectedText.isNullOrEmpty()) {
+            ic.commitText("", 1)
+            return
+        }
         val before = ic.getTextBeforeCursor(256, 0)?.toString().orEmpty()
         if (before.isEmpty()) return
         var end = before.length
