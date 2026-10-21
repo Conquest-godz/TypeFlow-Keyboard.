@@ -22,6 +22,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var keyHeightDp = 48
     private var emojiMode = false
     private var recentEmoji: List<String> = emptyList()
+    private var emojiItems: List<String> = emptyList()
+    private var emojiAdapter: BaseAdapter? = null
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
         override fun run() {
@@ -41,6 +43,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     private fun buildLayout(layout: List<List<String>>) {
         emojiMode = false
+        emojiAdapter = null
+        emojiItems = emptyList()
         stopBackspaceRepeat()
         removeAllViews()
         keyViews.clear()
@@ -186,13 +190,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     when {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
                         swiping && path.size >= 3 -> {
-                            val word = SwipeTypingEngine.recognize(path)
-                            // Never turn a completed glide into an unrelated single-letter tap.
-                            // If confidence is insufficient, preserve the sampled path as a local fallback.
-                            val fallback = SwipeTypingEngine.normalizePath(path)
-                            val candidate = word ?: fallback.takeIf { it.length >= 2 }
-                            if (candidate != null) keyListener?.invoke("SWIPEWORD:$candidate")
-                            else keyListener?.invoke(originalLabel)
+                            // Only commit a dictionary-recognized word. Inserting the raw path
+                            // would turn a missed recognition into visible gibberish.
+                            SwipeTypingEngine.recognize(path)?.let { keyListener?.invoke("SWIPEWORD:$it") }
                         }
                         else -> keyListener?.invoke(originalLabel)
                     }
@@ -245,7 +245,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
         // GridView virtualizes emoji cells instead of allocating thousands of TextViews at once.
         // This keeps the entire Unicode palette vertically scrollable without category tabs.
-        val ordered = (recentEmoji + UnicodeEmojiData.all).distinct()
+        emojiItems = (recentEmoji + UnicodeEmojiData.all).distinct()
         val grid = GridView(context).apply {
             numColumns = 8
             horizontalSpacing = dp(2)
@@ -255,8 +255,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             contentDescription = "All emoji, scroll vertically"
             adapter = object : BaseAdapter() {
-                override fun getCount(): Int = ordered.size
-                override fun getItem(position: Int): String = ordered[position]
+                override fun getCount(): Int = emojiItems.size
+                override fun getItem(position: Int): String = emojiItems[position]
                 override fun getItemId(position: Int): Long = position.toLong()
                 override fun hasStableIds(): Boolean = false
 
@@ -287,6 +287,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
             }
         }
+        emojiAdapter = grid.adapter as? BaseAdapter
         addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(204), 1f))
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
@@ -305,6 +306,10 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     fun setRecentEmoji(values: List<String>) {
         recentEmoji = values.distinct().take(24)
+        if (emojiMode) {
+            emojiItems = (recentEmoji + UnicodeEmojiData.all).distinct()
+            emojiAdapter?.notifyDataSetChanged()
+        }
     }
 
     fun setPreferences(haptics: Boolean, keyHeight: Int) {
