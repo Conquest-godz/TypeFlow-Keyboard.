@@ -199,6 +199,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         var pendingAlternates: List<String>? = null
         var path = mutableListOf(originalLabel.lowercase()[0])
         var gesturePoints = mutableListOf<SwipeTypingEngine.Point>()
+        var swipeLetterBounds: List<Pair<android.graphics.Rect, Char>> = emptyList()
         var previewPopup: PopupWindow? = null
         val longPress = Runnable {
             val options = KeyboardLayout.alternates[originalLabel.lowercase()]
@@ -216,6 +217,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     swiping = false; longPressed = false; pendingAlternates = null
                     path = mutableListOf(originalLabel.lowercase()[0])
                     gesturePoints = mutableListOf(normalizedGesturePoint(event.rawX, event.rawY))
+                    swipeLetterBounds = captureLetterBounds()
                     key.setTouchFeedback(true, performHaptic = true)
                     previewPopup?.dismiss()
                     previewPopup = showLetterPreview(key, originalLabel)
@@ -231,7 +233,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     }
                     if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop * 1.35) swiping = true
                     if (swiping) {
-                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
+                        sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path, swipeLetterBounds)
                         appendGesturePoint(event.rawX, event.rawY, gesturePoints)
                     }
                     previousX = event.rawX; previousY = event.rawY
@@ -327,15 +329,19 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }.toMap()
     }
 
-    /** Sample movement while caching key bounds once per segment to keep the IME responsive. */
-    private fun sampleSwipePath(x1: Float, y1: Float, x2: Float, y2: Float, path: MutableList<Char>) {
-        val letterBounds = keyViews.mapNotNull { key ->
-            val label = key.getLabel()
-            if (label.length != 1 || !label[0].isLetter()) return@mapNotNull null
-            val location = IntArray(2)
-            key.getLocationOnScreen(location)
-            android.graphics.Rect(location[0], location[1], location[0] + key.width, location[1] + key.height) to label[0].lowercaseChar()
-        }
+    /** Snapshot key bounds once per gesture rather than rebuilding them for every motion event. */
+    private fun captureLetterBounds(): List<Pair<android.graphics.Rect, Char>> = keyViews.mapNotNull { key ->
+        val label = key.getLabel()
+        if (label.length != 1 || !label[0].isLetter()) return@mapNotNull null
+        val location = IntArray(2)
+        key.getLocationOnScreen(location)
+        android.graphics.Rect(location[0], location[1], location[0] + key.width, location[1] + key.height) to label[0].lowercaseChar()
+    }
+
+    private fun sampleSwipePath(
+        x1: Float, y1: Float, x2: Float, y2: Float, path: MutableList<Char>,
+        letterBounds: List<Pair<android.graphics.Rect, Char>>
+    ) {
         val distance = kotlin.math.hypot((x2 - x1).toDouble(), (y2 - y1).toDouble()).toFloat()
         val samples = (distance / dp(6).coerceAtLeast(1)).toInt().coerceIn(1, 96)
         for (i in 1..samples) {
