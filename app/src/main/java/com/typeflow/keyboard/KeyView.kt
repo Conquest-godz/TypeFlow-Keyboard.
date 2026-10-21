@@ -12,18 +12,22 @@ import android.widget.TextView
 
 class KeyView(context: Context, private var label: String) : LinearLayout(context) {
     private val textView = TextView(context)
+    private var pressed = false
 
     init {
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
+        isHapticFeedbackEnabled = true
         minimumHeight = dp(44)
 
         textView.text = displayLabel(label)
         textView.gravity = Gravity.CENTER
-        textView.textSize = 16f
+        textView.textSize = if (label.startsWith("E:")) 21f else 16f
         textView.typeface = Typeface.DEFAULT_BOLD
         textView.setTextColor(Color.WHITE)
+        textView.isClickable = false
+        textView.isFocusable = false
         addView(textView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
         refreshBackground(false)
@@ -40,25 +44,29 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                pressed = true
                 refreshBackground(true)
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> refreshBackground(false)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                pressed = false
+                refreshBackground(false)
+            }
         }
         return super.onTouchEvent(event)
     }
 
-    private fun refreshBackground(pressed: Boolean) {
+    private fun refreshBackground(isPressed: Boolean) {
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(10).toFloat()
-            setColor(Color.parseColor(if (pressed) "#48484A" else "#2C2C2E"))
+            cornerRadius = dp(if (label.startsWith("E:")) 12 else 10).toFloat()
+            setColor(Color.parseColor(if (isPressed) "#555558" else "#2C2C2E"))
         }
         elevation = dp(2).toFloat()
     }
 
-    private fun displayLabel(value: String): String = when (value) {
-        "SPACE" -> ""
-        "?123" -> "?123"
+    private fun displayLabel(value: String): String = when {
+        value == "SPACE" -> ""
+        value.startsWith("E:") -> value.removePrefix("E:")
         else -> value
     }
 
