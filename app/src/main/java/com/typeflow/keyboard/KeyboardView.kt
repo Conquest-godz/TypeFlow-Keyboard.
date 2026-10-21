@@ -36,7 +36,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         removeAllViews()
         keyViews.clear()
 
-        layout.forEachIndexed { rowIndex, row ->
+        layout.forEach { row ->
             val rowView = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER
@@ -44,22 +44,24 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
             row.forEach { label ->
                 val key = KeyView(context, label)
-                key.contentDescription = when (label) {
-                    "SPACE" -> "Space"
-                    "⌫" -> "Backspace"
-                    "⇧" -> "Shift"
-                    "↵" -> "Enter"
-                    "😀" -> "Emoji"
+                key.contentDescription = when {
+                    label == "SPACE" -> "Space"
+                    label == "⌫" -> "Backspace"
+                    label == "⇧" -> "Shift"
+                    label == "↵" -> "Enter"
+                    label == "😀" -> "Open emoji picker"
+                    label.startsWith("E:") -> label.removePrefix("E:")
                     else -> label
                 }
 
-                val weight = when (label) {
-                    "SPACE" -> 4f
-                    "⇧", "⌫", "↵", "?123", "ABC" -> 1.5f
+                val weight = when {
+                    label == "SPACE" -> 4f
+                    label in listOf("⇧", "⌫", "↵", "?123", "ABC") -> 1.5f
+                    label == "😀" -> 1.2f
                     else -> 1f
                 }
 
-                val lp = LayoutParams(0, dp(48), weight)
+                val lp = LayoutParams(0, dp(if (layout == KeyboardLayout.emoji) 43 else 48), weight)
                 lp.setMargins(dp(2), dp(3), dp(2), dp(3))
                 key.layoutParams = lp
 
@@ -90,6 +92,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     fun showLetters() = buildLayout(KeyboardLayout.letters)
     fun showNumbers() = buildLayout(KeyboardLayout.numbers)
+    fun showEmoji() = buildLayout(KeyboardLayout.emoji)
 
     fun setKeyListener(listener: (String) -> Unit) {
         keyListener = listener
@@ -101,7 +104,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     override fun onDetachedFromWindow() {
         stopBackspaceRepeat()
-        keyListener = null
+        // Keep the listener: InputMethodService may detach and reuse this view.
         super.onDetachedFromWindow()
     }
 
