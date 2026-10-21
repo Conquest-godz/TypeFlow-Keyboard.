@@ -19,6 +19,13 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var backspaceRepeating = false
     private var backspaceRepeatCount = 0
+    private var backspaceDidDelete = false
+    private val backspaceInitialDelete = Runnable {
+        if (backspaceRepeating) {
+            keyListener?.invoke("⌫")
+            backspaceDidDelete = true
+        }
+    }
     private var hapticsEnabled = true
     private var keyHeightDp = 48
     private var emojiMode = false
@@ -30,6 +37,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         override fun run() {
             if (!backspaceRepeating) return
             keyListener?.invoke("⌫")
+            backspaceDidDelete = true
             backspaceRepeatCount++
             // Accelerate gently while held, then keep a steady continuous repeat cadence.
             val interval = if (backspaceRepeatCount >= BACKSPACE_ACCELERATION_COUNT) {
@@ -134,28 +142,52 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     private fun installBackspaceGesture(key: KeyView) {
         var downX = 0f
-        var deleteWordTriggered = false
+        var previewActive = false
+        var lastPreviewCount = 0
         key.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     stopBackspaceRepeat()
+                    repeatHandler.removeCallbacks(backspaceInitialDelete)
                     backspaceRepeatCount = 0
+                    backspaceDidDelete = false
                     downX = event.rawX
-                    deleteWordTriggered = false
+                    previewActive = false
+                    lastPreviewCount = 0
                     key.setTouchFeedback(true, performHaptic = true)
-                    keyListener?.invoke("⌫")
                     backspaceRepeating = true
+                    repeatHandler.postDelayed(backspaceInitialDelete, BACKSPACE_TAP_DELETE_DELAY_MS)
                     repeatHandler.postDelayed(backspaceRepeat, BACKSPACE_REPEAT_START_DELAY_MS)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!deleteWordTriggered && downX - event.rawX > touchSlop * 1.5f) {
-                        deleteWordTriggered = true
-                        stopBackspaceRepeat()
-                        keyListener?.invoke("DELETE_WORD")
+                    val dragDp = ((downX - event.rawX) / resources.displayMetrics.density).coerceAtLeast(0f)
+                    if (dragDp >= DELETE_PREVIEW_START_DP) {
+                        if (!previewActive) {
+                            previewActive = true
+                            stopBackspaceRepeat()
+                            repeatHandler.removeCallbacks(backspaceInitialDelete)
+                        }
+                        val count = ((dragDp - DELETE_PREVIEW_START_DP) / DELETE_PREVIEW_CHAR_DP).toInt() + 1
+                        if (count != lastPreviewCount) {
+                            lastPreviewCount = count
+                            keyListener?.invoke("DELETE_PREVIEW:$count")
+                        }
                     }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    key.setTouchFeedback(false); stopBackspaceRepeat()
+                MotionEvent.ACTION_UP -> {
+                    key.setTouchFeedback(false)
+                    if (previewActive) keyListener?.invoke("DELETE_PREVIEW_COMMIT")
+                    else if (!backspaceDidDelete) {
+                        repeatHandler.removeCallbacks(backspaceInitialDelete)
+                        keyListener?.invoke("⌫")
+                    }
+                    stopBackspaceRepeat()
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    key.setTouchFeedback(false)
+                    if (previewActive) keyListener?.invoke("DELETE_PREVIEW_CANCEL")
+                    stopBackspaceRepeat()
+                    repeatHandler.removeCallbacks(backspaceInitialDelete)
                 }
             }
             true
@@ -364,6 +396,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     fun stopBackspaceRepeat() {
         backspaceRepeating = false
         repeatHandler.removeCallbacks(backspaceRepeat)
+        repeatHandler.removeCallbacks(backspaceInitialDelete)
     }
 
     fun cancelPendingGestures() {
@@ -379,8 +412,11 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private companion object {
-        const val CURSOR_STEP_DP = 18
-        const val BACKSPACE_REPEAT_START_DELAY_MS = 280L
+        const val CURSOR_STEP_DP = 10
+        const val BACKSPACE_TAP_DELETE_DELAY_MS = 100L
+        const val DELETE_PREVIEW_START_DP = 8f
+        const val DELETE_PREVIEW_CHAR_DP = 10f
+        const val BACKSPACE_REPEAT_START_DELAY_MS = 340L
         const val BACKSPACE_REPEAT_INTERVAL_MS = 42L
         const val BACKSPACE_REPEAT_FAST_INTERVAL_MS = 28L
         const val BACKSPACE_ACCELERATION_COUNT = 5
