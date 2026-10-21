@@ -47,7 +47,6 @@ class TypeFlowService : InputMethodService() {
                     ic.commitText(emoji, 1)
                     preferences.rememberEmoji(emoji)
                     view.setRecentEmoji(preferences.recentEmoji())
-                    view.showEmoji()
                     syncShiftState()
                 }
                 key.startsWith("SWIPEWORD:") -> {
