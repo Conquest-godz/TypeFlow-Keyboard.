@@ -51,7 +51,11 @@ class TypeFlowService : InputMethodService() {
                 }
                 key.startsWith("SWIPEWORD:") -> {
                     val word = key.removePrefix("SWIPEWORD:")
-                    val output = if (shiftState.state != ShiftStateMachine.State.OFF) word.replaceFirstChar { it.uppercase() } else word
+                    val output = when (shiftState.state) {
+                        ShiftStateMachine.State.OFF -> word
+                        ShiftStateMachine.State.SHIFT -> word.replaceFirstChar { it.uppercase() }
+                        ShiftStateMachine.State.CAPS_LOCK -> word.uppercase()
+                    }
                     ic.commitText(output, 1)
                     shiftState.onCharacterCommitted(); syncShiftState()
                 }
