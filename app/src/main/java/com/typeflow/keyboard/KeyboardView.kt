@@ -282,7 +282,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         if (hapticsEnabled) it.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                         keyListener?.invoke("E:$emoji")
                     }
-                    cell.layoutParams = GridView.LayoutParams(LayoutParams.MATCH_PARENT, dp(42))
+                    cell.layoutParams = android.widget.AbsListView.LayoutParams(LayoutParams.MATCH_PARENT, dp(42))
                     return cell
                 }
             }
