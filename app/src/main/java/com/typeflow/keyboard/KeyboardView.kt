@@ -138,20 +138,21 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         var downY = 0f
         var swiping = false
         var longPressed = false
+        var pendingAlternates: List<String>? = null
         var path = mutableListOf<Char>()
         val longPress = Runnable {
             val options = KeyboardLayout.alternates[label.lowercase()]
             if (!options.isNullOrEmpty()) {
                 longPressed = true
                 key.setTouchFeedback(true, performHaptic = true)
-                showAlternates(options)
+                pendingAlternates = options
             }
         }
         key.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY
-                    swiping = false; longPressed = false
+                    swiping = false; longPressed = false; pendingAlternates = null
                     path = mutableListOf(label.lowercase()[0])
                     key.setTouchFeedback(true, performHaptic = true)
                     repeatHandler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
@@ -168,7 +169,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
                     when {
-                        longPressed -> Unit
+                        longPressed -> pendingAlternates?.let { showAlternates(it) }
                         swiping && path.size >= 3 -> {
                             val word = SwipeTypingEngine.recognize(path)
                             if (word != null) keyListener?.invoke("SWIPEWORD:$word") else keyListener?.invoke(label)
@@ -178,7 +179,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
-                    if (longPressed) showLetters()
                 }
             }
             true
