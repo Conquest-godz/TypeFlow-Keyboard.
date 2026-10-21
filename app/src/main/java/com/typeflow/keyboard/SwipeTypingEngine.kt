@@ -83,13 +83,13 @@ internal object SwipeTypingEngine {
                 word.length in max(2, pathKeys.length - maxEdit)..(pathKeys.length + maxEdit) &&
                     word.first() == startKey && word.last() == endKey
             }
-            .map { word -> word to editDistance(pathKeys.toList(), word) }
+            .map { word -> word to editDistance(pathKeys, word) }
             .filter { it.second <= maxEdit }
             .sortedBy { it.second }
             .take(MAX_GEOMETRIC_CANDIDATES)
             .toList()
 
-        if (candidates.isEmpty()) return recognize(pathKeys)
+        if (candidates.isEmpty()) return recognize(pathKeys.toList())
         val ranked = candidates.mapNotNull { (word, edits) ->
             val template = word.map { keyCenters[it] ?: return@mapNotNull null }
             val idealPath = resample(template, SAMPLE_COUNT)
