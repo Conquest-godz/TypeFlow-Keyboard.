@@ -14,6 +14,7 @@ class TypeFlowService : InputMethodService() {
     private var numberMode = false
     private var keyboard: KeyboardView? = null
     private var deletePreviewAnchor: Int? = null
+    private var deletePreviewBeforeText: String = ""
     private lateinit var preferences: KeyboardPreferences
     private lateinit var clipboardHistory: ClipboardHistoryStore
 
@@ -141,9 +142,10 @@ class TypeFlowService : InputMethodService() {
             val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
             if (extracted.selectionStart < 0 || extracted.selectionEnd < 0 || extracted.selectionStart != extracted.selectionEnd) return
             deletePreviewAnchor = extracted.startOffset + extracted.selectionEnd
+            deletePreviewBeforeText = ic.getTextBeforeCursor(512, 0)?.toString().orEmpty()
         }
         val anchor = deletePreviewAnchor ?: return
-        val before = ic.getTextBeforeCursor(512, 0)?.toString().orEmpty()
+        val before = deletePreviewBeforeText
         if (before.isEmpty()) return
         val count = requestedCharacters.coerceAtLeast(1).coerceAtMost(before.codePointCount(0, before.length))
         var startIndex = before.length
@@ -155,6 +157,7 @@ class TypeFlowService : InputMethodService() {
     private fun commitDeletePreview(ic: InputConnection) {
         if (deletePreviewAnchor != null) ic.commitText("", 1)
         deletePreviewAnchor = null
+        deletePreviewBeforeText = ""
     }
 
     private fun cancelDeletePreview(ic: InputConnection) {
