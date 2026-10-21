@@ -41,25 +41,38 @@ internal object SwipeTypingEngine {
         val words = dictionary
         if (normalized in words) return normalized
 
-        // Restrict candidates by endpoints and plausible length before edit-distance scoring.
+        // Glide paths commonly miss intermediate keys, so permit a small endpoint mismatch
+        // as well as insertions/deletions. A confidence ceiling prevents wild guesses.
         val maxDistance = when {
-            normalized.length <= 4 -> 1
+            normalized.length <= 4 -> 2
             normalized.length <= 7 -> 2
             else -> 3
         }
         var bestWord: String? = null
         var bestScore = Double.POSITIVE_INFINITY
+        var secondBestScore = Double.POSITIVE_INFINITY
         for (word in words) {
-            if (word.firstOrNull() != normalized.first() || word.lastOrNull() != normalized.last()) continue
             if (kotlin.math.abs(word.length - normalized.length) > maxDistance) continue
             val distance = editDistance(normalized, word)
             if (distance > maxDistance) continue
-            // Prefer a close path and avoid over-correcting into much longer words.
-            val score = distance.toDouble() + kotlin.math.abs(word.length - normalized.length) * 0.18
+            val endpointPenalty =
+                (if (word.firstOrNull() == normalized.first()) 0.0 else 0.85) +
+                (if (word.lastOrNull() == normalized.last()) 0.0 else 0.85)
+            // Prefer exact endpoints, modest length differences, and the shortest edit path.
+            val score = distance.toDouble() + endpointPenalty +
+                kotlin.math.abs(word.length - normalized.length) * 0.16
             if (score < bestScore) {
+                secondBestScore = bestScore
                 bestScore = score
                 bestWord = word
+            } else if (score < secondBestScore) {
+                secondBestScore = score
             }
+        }
+        // Don't turn an uncertain glide into a random dictionary word.
+        if (bestScore > maxDistance + 0.9) return null
+        if (secondBestScore.isFinite() && secondBestScore - bestScore < 0.12 && bestScore > 1.0) {
+            return null
         }
         return bestWord
     }
