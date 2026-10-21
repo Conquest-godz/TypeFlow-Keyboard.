@@ -29,6 +29,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var emojiAdapter: BaseAdapter? = null
     private var emojiGrid: GridView? = null
     private var emojiCategory = 0
+    private var regularKeyboardHeightPx = 0
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
         override fun run() {
@@ -367,6 +368,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     /** One continuous, vertically scrollable Unicode emoji palette; there are no category tabs. */
     private fun showEmojiPicker() {
+        if (height > 0) regularKeyboardHeightPx = height
         emojiMode = true
         stopBackspaceRepeat()
         removeAllViews()
@@ -499,7 +501,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     /** Keep the emoji palette the same total height as the normal keyboard as settings/window size change. */
     private fun resizeEmojiGridToKeyboard() {
         val grid = emojiGrid ?: return
-        val measuredKeyboardHeight = height
+        val measuredKeyboardHeight = regularKeyboardHeightPx.takeIf { it > 0 } ?: height
         if (measuredKeyboardHeight <= 0) return
         val categoryHeight = dp(34)
         val controlsHeight = dp(keyHeightDp + 6)
@@ -514,6 +516,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        if (!emojiMode && height > 0) regularKeyboardHeightPx = height
         if (emojiMode) post { resizeEmojiGridToKeyboard() }
     }
 
@@ -531,6 +534,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         hapticsEnabled = haptics
         keyHeightDp = keyHeight.coerceIn(40, 64)
         keyViews.forEach { it.hapticsEnabled = hapticsEnabled; it.keyHeightDp = keyHeightDp }
+        if (!emojiMode && height > 0) regularKeyboardHeightPx = height
         if (emojiMode) post { resizeEmojiGridToKeyboard() }
     }
 
