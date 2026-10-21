@@ -1,12 +1,13 @@
 package com.typeflow.keyboard
 
+import java.io.InputStream
+
 /**
- * Small offline recognizer foundation. It maps the visited key sequence to the
- * closest word in a compact built-in lexicon; no path or text leaves the device.
- * A full language model is intentionally not implied by this compact engine.
+ * Offline swipe recognizer backed by a local English word list.
+ * Only visited key labels are considered; no typed text or gesture path leaves the device.
  */
 internal object SwipeTypingEngine {
-    private val words = setOf(
+    private val seedWords = setOf(
         "a", "about", "after", "again", "all", "also", "am", "an", "and", "are", "as", "at",
         "be", "because", "been", "but", "by", "can", "come", "could", "day", "do", "down",
         "for", "from", "get", "go", "good", "had", "has", "have", "he", "her", "here", "him",
@@ -17,6 +18,16 @@ internal object SwipeTypingEngine {
         "up", "us", "use", "very", "want", "was", "way", "we", "well", "what", "when", "which",
         "who", "will", "with", "would", "yes", "you", "your", "hello", "world", "thanks", "love"
     )
+    @Volatile private var dictionary: List<String> = seedWords.toList()
+
+    fun loadDictionary(input: InputStream) {
+        input.bufferedReader(Charsets.UTF_8).useLines { lines ->
+            val loaded = lines.map { it.trim().lowercase() }
+                .filter { it.length in 2..32 && it.all { c -> c in 'a'..'z' } }
+                .toList()
+            if (loaded.isNotEmpty()) dictionary = (loaded + seedWords).distinct()
+        }
+    }
 
     fun normalizePath(keys: List<Char>): String = keys.asSequence()
         .map { it.lowercaseChar() }
@@ -27,13 +38,30 @@ internal object SwipeTypingEngine {
     fun recognize(path: List<Char>): String? {
         val normalized = normalizePath(path)
         if (normalized.length < 2) return null
+        val words = dictionary
         if (normalized in words) return normalized
-        return words.asSequence()
-            .filter { it.firstOrNull() == normalized.first() && it.lastOrNull() == normalized.last() }
-            .map { it to editDistance(normalized, it) }
-            .filter { (_, distance) -> distance <= maxOf(1, normalized.length / 3) }
-            .minByOrNull { (_, distance) -> distance }
-            ?.first
+
+        // Restrict candidates by endpoints and plausible length before edit-distance scoring.
+        val maxDistance = when {
+            normalized.length <= 4 -> 1
+            normalized.length <= 7 -> 2
+            else -> 3
+        }
+        var bestWord: String? = null
+        var bestScore = Double.POSITIVE_INFINITY
+        for (word in words) {
+            if (word.firstOrNull() != normalized.first() || word.lastOrNull() != normalized.last()) continue
+            if (kotlin.math.abs(word.length - normalized.length) > maxDistance) continue
+            val distance = editDistance(normalized, word)
+            if (distance > maxDistance) continue
+            // Prefer a close path and avoid over-correcting into much longer words.
+            val score = distance.toDouble() + kotlin.math.abs(word.length - normalized.length) * 0.18
+            if (score < bestScore) {
+                bestScore = score
+                bestWord = word
+            }
+        }
+        return bestWord
     }
 
     private fun editDistance(a: String, b: String): Int {
