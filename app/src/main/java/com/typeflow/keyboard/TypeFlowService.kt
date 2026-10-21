@@ -59,7 +59,7 @@ class TypeFlowService : InputMethodService() {
                         ShiftStateMachine.State.SHIFT -> word.replaceFirstChar { it.uppercase() }
                         ShiftStateMachine.State.CAPS_LOCK -> word.uppercase()
                     }
-                    ic.commitText(output, 1)
+                    ic.commitText(output + " ", 1)
                     shiftState.onCharacterCommitted(); syncShiftState()
                 }
                 key == "SPACE" -> { ic.commitText(" ", 1); shiftState.onCharacterCommitted(); syncShiftState() }
@@ -163,7 +163,9 @@ class TypeFlowService : InputMethodService() {
     private fun cancelDeletePreview(ic: InputConnection) {
         deletePreviewAnchor?.let { ic.setSelection(it, it) }
         deletePreviewAnchor = null
+        deletePreviewBeforeText = ""
     }
+
     private fun deletePreviousWord(ic: InputConnection) {
         val selectedText = ic.getSelectedText(0)
         if (!selectedText.isNullOrEmpty()) {
