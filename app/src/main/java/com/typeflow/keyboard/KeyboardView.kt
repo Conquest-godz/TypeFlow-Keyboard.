@@ -187,7 +187,11 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
                         swiping && path.size >= 3 -> {
                             val word = SwipeTypingEngine.recognize(path)
-                            if (word != null) keyListener?.invoke("SWIPEWORD:$word")
+                            // Never turn a completed glide into an unrelated single-letter tap.
+                            // If confidence is insufficient, preserve the sampled path as a local fallback.
+                            val fallback = SwipeTypingEngine.normalizePath(path)
+                            val candidate = word ?: fallback.takeIf { it.length >= 2 }
+                            if (candidate != null) keyListener?.invoke("SWIPEWORD:$candidate")
                             else keyListener?.invoke(originalLabel)
                         }
                         else -> keyListener?.invoke(originalLabel)
