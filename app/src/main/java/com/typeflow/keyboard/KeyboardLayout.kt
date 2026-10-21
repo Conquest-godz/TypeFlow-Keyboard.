@@ -14,4 +14,14 @@ object KeyboardLayout {
         listOf("=\\<", "*", "\"", "'", ":", ";", "!", "?", "⌫"),
         listOf("ABC", "😀", ",", "SPACE", ".", "↵")
     )
+
+    // Compact, local emoji picker. Each item is inserted as ordinary text through
+    // the active InputConnection; no clipboard or network access is involved.
+    val emoji = listOf(
+        listOf("E:😀", "E:😃", "E:😄", "E:😁", "E:😆", "E:😅", "E:🤣", "E:😂"),
+        listOf("E:🙂", "E:🙃", "E:😉", "E:😊", "E:😍", "E:🥰", "E:😘", "E:😎"),
+        listOf("E:🥳", "E:😭", "E:😡", "E:🤔", "E:🤗", "E:🙏", "E:👍", "E:❤️"),
+        listOf("E:🔥", "E:💯", "E:✨", "E:🎉", "E:💀", "E:🤝", "E:👏", "E:💖"),
+        listOf("ABC", "E:🫶", "E:💔", "E:😴", "E:🤩", "E:💪", "E:👀", "⌫")
+    )
 }
