@@ -345,7 +345,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             })
         }
         categoryBar.addView(categoryRow)
-        addView(categoryBar, LayoutParams(LayoutParams.MATCH_PARENT, dp(46)))
+        addView(categoryBar, LayoutParams(LayoutParams.MATCH_PARENT, dp(34)))
         loadEmojiCategory(emojiCategory)
         for (i in 0 until categoryRow.childCount) {
             val item = categoryRow.getChildAt(i) as TextView
@@ -397,7 +397,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
         emojiGrid = grid
         emojiAdapter = grid.adapter as? BaseAdapter
-        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(126)))
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
         listOf("ABC", "⌫").forEach { label ->
@@ -410,7 +410,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             keyViews.add(key)
             controls.addView(key)
         }
-        addView(controls, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(controls, LayoutParams(LayoutParams.MATCH_PARENT, dp(keyHeightDp + 6)))
     }
 
     fun setRecentEmoji(values: List<String>) {
