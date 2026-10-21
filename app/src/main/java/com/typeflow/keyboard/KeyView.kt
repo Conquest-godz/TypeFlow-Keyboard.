@@ -15,6 +15,10 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
     private var pressed = false
     private var shiftActive = false
     var hapticsEnabled: Boolean = true
+        set(value) {
+            field = value
+            isHapticFeedbackEnabled = value
+        }
     var keyHeightDp: Int = 48
         set(value) { field = value.coerceIn(40, 64); minimumHeight = dp(field) }
 
