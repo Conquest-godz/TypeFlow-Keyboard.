@@ -74,6 +74,10 @@ class TypeFlowService : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
+        if (::preferences.isInitialized) {
+            keyboard?.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp)
+            keyboard?.setRecentEmoji(preferences.recentEmoji())
+        }
         if (!restarting) {
             shiftState.onInputStarted(shouldAutoCapitalize(attribute))
             numberMode = false
