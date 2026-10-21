@@ -140,7 +140,7 @@ internal object SwipeTypingEngine {
             val candidate = Candidate(word, edits)
             if (heap.size < limit) {
                 heap.add(candidate)
-            } else if (worstFirst.compare(candidate, heap.peek()) < 0) {
+            } else if (worstFirst.compare(candidate, heap.peek()) > 0) {
                 heap.poll()
                 heap.add(candidate)
             }
