@@ -20,21 +20,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var backspaceRepeating = false
     private var backspaceRepeatCount = 0
     private var backspaceDidDelete = false
-    private val backspaceInitialDelete = Runnable {
-        if (backspaceRepeating) {
-            keyListener?.invoke("⌫")
-            backspaceDidDelete = true
-        }
-    }
-    private var hapticsEnabled = true
-    private var keyHeightDp = 48
-    private var emojiMode = false
-    private var recentEmoji: List<String> = emptyList()
-    private var emojiItems: List<String> = emptyList()
-    private var emojiAdapter: BaseAdapter? = null
-    private var emojiGrid: GridView? = null
-    private var emojiCategory = 0
-    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
         override fun run() {
             if (!backspaceRepeating) return
@@ -152,8 +137,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     stopBackspaceRepeat()
-                    repeatHandler.removeCallbacks(backspaceInitialDelete)
-                    backspaceRepeatCount = 0
+                                backspaceRepeatCount = 0
                     backspaceDidDelete = false
                     downX = event.rawX
                     previewActive = false
