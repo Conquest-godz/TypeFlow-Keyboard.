@@ -148,6 +148,11 @@ class TypeFlowService : InputMethodService() {
     private fun handleEnter(ic: InputConnection) {
         val resolution = EditorActionResolver.resolve(currentInputEditorInfo)
         val action = resolution.action
-        if (action == null || !ic.performEditorAction(action)) ic.commitText("\n", 1)
+        if (action == null) {
+            ic.commitText("\n", 1)
+        } else {
+            // A rejected single-line editor action must not inject a newline into the field.
+            ic.performEditorAction(action)
+        }
     }
 }
