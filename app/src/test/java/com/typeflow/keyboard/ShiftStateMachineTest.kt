@@ -12,7 +12,7 @@ class ShiftStateMachineTest {
         assertEquals(ShiftStateMachine.State.OFF, machine.state)
         machine.onShiftTap(200)
         assertEquals(ShiftStateMachine.State.SHIFT, machine.state)
-        machine.onShiftTap(300)
+        machine.onCharacterCommitted()
         assertEquals(ShiftStateMachine.State.OFF, machine.state)
     }
 
