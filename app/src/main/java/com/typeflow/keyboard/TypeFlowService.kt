@@ -19,33 +19,50 @@ class TypeFlowService : InputMethodService() {
         keyboard = view
 
         view.setKeyListener { key ->
-            val ic = currentInputConnection ?: return@setKeyListener
+            // Layout navigation must work even if an editor temporarily has no connection.
             when (key) {
-                "SPACE" -> ic.commitText(" ", 1)
-                "⌫" -> ic.deleteSurroundingText(1, 0)
-                "↵" -> handleEnter(ic)
-                "⇧" -> handleShift()
-                "?123" -> {
-                    numberMode = true
-                    view.showNumbers()
+                "😀" -> {
+                    view.showEmoji()
+                    return@setKeyListener
                 }
                 "ABC" -> {
                     numberMode = false
                     view.showLetters()
+                    return@setKeyListener
                 }
-                "😀" -> {
-                    // Emoji picker is not implemented in this baseline.
+                "?123" -> {
+                    numberMode = true
+                    view.showNumbers()
+                    return@setKeyListener
                 }
+            }
+
+            val ic = currentInputConnection ?: return@setKeyListener
+            when {
+                key.startsWith("E:") -> {
+                    ic.commitText(key.removePrefix("E:"), 1)
+                    view.showLetters()
+                }
+                key == "SPACE" -> {
+                    ic.commitText(" ", 1)
+                    consumeOneShotShift()
+                }
+                key == "⌫" -> {
+                    val selected = ic.getSelectedText(0)
+                    if (!selected.isNullOrEmpty()) {
+                        ic.commitText("", 1)
+                    } else {
+                        ic.deleteSurroundingTextInCodePoints(1, 0)
+                    }
+                }
+                key == "↵" -> handleEnter(ic)
+                key == "⇧" -> handleShift()
                 else -> {
                     val output = if (!numberMode && key.length == 1 && key[0].isLetter()) {
                         if (capsLock || shiftEnabled) key.uppercase() else key.lowercase()
-                    } else {
-                        key
-                    }
+                    } else key
                     ic.commitText(output, 1)
-                    if (shiftEnabled && !capsLock && !numberMode) {
-                        shiftEnabled = false
-                    }
+                    if (!numberMode && key.length == 1 && key[0].isLetter()) consumeOneShotShift()
                 }
             }
         }
@@ -58,14 +75,21 @@ class TypeFlowService : InputMethodService() {
             shiftEnabled = shouldAutoCapitalize(attribute)
             capsLock = false
             lastShiftTap = 0L
+            numberMode = false
+            keyboard?.showLetters()
         }
     }
 
     override fun onFinishInput() {
-        super.onFinishInput()
+        keyboard = null
         shiftEnabled = false
         capsLock = false
-        keyboard = null
+        numberMode = false
+        super.onFinishInput()
+    }
+
+    private fun consumeOneShotShift() {
+        if (shiftEnabled && !capsLock && !numberMode) shiftEnabled = false
     }
 
     private fun handleShift() {
@@ -88,7 +112,18 @@ class TypeFlowService : InputMethodService() {
     }
 
     private fun handleEnter(ic: InputConnection) {
-        val action = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)
+        val options = currentInputEditorInfo?.imeOptions ?: EditorInfo.IME_ACTION_UNSPECIFIED
+        val action = options and EditorInfo.IME_MASK_ACTION
+        val noEnterAction = options and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+        val inputType = currentInputEditorInfo?.inputType ?: InputType.TYPE_CLASS_TEXT
+        val multiline = (inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_TEXT &&
+            inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
+
+        if (noEnterAction || multiline) {
+            ic.commitText("\n", 1)
+            return
+        }
+
         when (action) {
             EditorInfo.IME_ACTION_SEND,
             EditorInfo.IME_ACTION_SEARCH,
@@ -96,10 +131,7 @@ class TypeFlowService : InputMethodService() {
             EditorInfo.IME_ACTION_DONE,
             EditorInfo.IME_ACTION_NEXT,
             EditorInfo.IME_ACTION_PREVIOUS -> {
-                val editorAction = action ?: EditorInfo.IME_ACTION_UNSPECIFIED
-                if (!ic.performEditorAction(editorAction)) {
-                    ic.commitText("\n", 1)
-                }
+                if (!ic.performEditorAction(action)) ic.commitText("\n", 1)
             }
             else -> ic.commitText("\n", 1)
         }
