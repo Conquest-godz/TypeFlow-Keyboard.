@@ -319,7 +319,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             val label = key.getLabel()
             if (label.length != 1 || !label[0].isLetter()) return@mapNotNull null
             val loc = IntArray(2); key.getLocationOnScreen(loc)
-            label.lowercaseChar() to SwipeTypingEngine.Point(
+            label.lowercase()[0] to SwipeTypingEngine.Point(
                 ((loc[0] + key.width / 2f - origin[0]) / width.coerceAtLeast(1)).coerceIn(0f, 1f),
                 ((loc[1] + key.height / 2f - origin[1]) / height.coerceAtLeast(1)).coerceIn(0f, 1f)
             )
