@@ -57,6 +57,7 @@ class TypeFlowService : InputMethodService() {
                 }
                 key == "SPACE" -> { ic.commitText(" ", 1); shiftState.onCharacterCommitted(); syncShiftState() }
                 key == "⌫" -> deleteBackward(ic)
+                key == "DELETE_WORD" -> deletePreviousWord(ic)
                 key == "↵" || key in listOf("Go", "Search", "Send", "Next", "Done", "Previous") -> handleEnter(ic)
                 key == "⇧" -> { shiftState.onShiftTap(SystemClock.uptimeMillis()); syncShiftState() }
                 else -> {
@@ -122,6 +123,16 @@ class TypeFlowService : InputMethodService() {
         val selectedText = ic.getSelectedText(0)
         if (!selectedText.isNullOrEmpty()) ic.commitText("", 1)
         else ic.deleteSurroundingTextInCodePoints(1, 0)
+    }
+
+    private fun deletePreviousWord(ic: InputConnection) {
+        val before = ic.getTextBeforeCursor(256, 0)?.toString().orEmpty()
+        if (before.isEmpty()) return
+        var end = before.length
+        while (end > 0 && before[end - 1].isWhitespace()) end--
+        while (end > 0 && !before[end - 1].isWhitespace()) end--
+        val count = before.length - end
+        if (count > 0) ic.deleteSurroundingText(count, 0)
     }
 
     private fun handleEnter(ic: InputConnection) {
