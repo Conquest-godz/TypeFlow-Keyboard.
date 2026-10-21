@@ -270,7 +270,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         false
                     }
                     setOnClickListener {
-                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        if (hapticsEnabled) performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                         keyListener?.invoke("E:$emoji")
                     }
                     layoutParams = LayoutParams(0, dp(42), 1f).apply {
