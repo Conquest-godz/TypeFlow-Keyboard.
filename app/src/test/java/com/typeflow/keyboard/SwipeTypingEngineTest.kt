@@ -20,6 +20,10 @@ class SwipeTypingEngineTest {
         assertEquals("world", SwipeTypingEngine.recognize(listOf('w', 'o', 'r', 'l', 'd')))
     }
 
+    @Test fun recognizesACommonGlideThatSkipsAnIntermediateKey() {
+        assertEquals("hello", SwipeTypingEngine.recognize(listOf('h', 'e', 'l', 'o')))
+    }
+
     @Test fun ignoresTooShortPaths() {
         assertNull(SwipeTypingEngine.recognize(listOf('a')))
     }
