@@ -58,7 +58,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 when {
                     label == "SPACE" -> installSpaceGesture(key)
                     label == "⌫" -> installBackspaceGesture(key)
-                    label.length == 1 && label[0].isLetter() -> installLetterGesture(key, label)
+                    label.length == 1 && (label[0].isLetter() || KeyboardLayout.alternates.containsKey(label)) -> installLetterGesture(key, label)
                     else -> key.setOnClickListener { keyListener?.invoke(label) }
                 }
                 keyViews.add(key)
