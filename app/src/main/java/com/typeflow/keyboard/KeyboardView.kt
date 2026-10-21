@@ -18,6 +18,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private val keyViews = mutableListOf<KeyView>()
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var backspaceRepeating = false
+    private var backspaceRepeatCount = 0
     private var hapticsEnabled = true
     private var keyHeightDp = 48
     private var emojiMode = false
@@ -29,7 +30,14 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         override fun run() {
             if (!backspaceRepeating) return
             keyListener?.invoke("⌫")
-            repeatHandler.postDelayed(this, BACKSPACE_REPEAT_INTERVAL_MS)
+            backspaceRepeatCount++
+            // Accelerate gently while held, then keep a steady continuous repeat cadence.
+            val interval = if (backspaceRepeatCount >= BACKSPACE_ACCELERATION_COUNT) {
+                BACKSPACE_REPEAT_FAST_INTERVAL_MS
+            } else {
+                BACKSPACE_REPEAT_INTERVAL_MS
+            }
+            repeatHandler.postDelayed(this, interval)
         }
     }
 
@@ -91,18 +99,23 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private fun installSpaceGesture(key: KeyView) {
         var previousX = 0f
         var accumulatedX = 0f
+        var totalTravelX = 0f
         var moved = false
         key.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    previousX = event.rawX; accumulatedX = 0f; moved = false
+                    previousX = event.rawX; accumulatedX = 0f; totalTravelX = 0f; moved = false
                     key.setTouchFeedback(true, performHaptic = true)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    accumulatedX += event.rawX - previousX
+                    val delta = event.rawX - previousX
+                    accumulatedX += delta
+                    totalTravelX += delta
                     previousX = event.rawX
-                    if (kotlin.math.abs(accumulatedX) > touchSlop) moved = true
-                    val threshold = (key.width / 8f).coerceAtLeast(dp(12).toFloat())
+                    if (kotlin.math.abs(totalTravelX) > touchSlop) moved = true
+                    // Gboard-like cursor scrubbing should respond to a short, deliberate slide;
+                    // tying the threshold to the whole spacebar made it unnecessarily sluggish.
+                    val threshold = dp(CURSOR_STEP_DP).coerceAtLeast(1).toFloat()
                     val steps = GestureMath.cursorSteps(accumulatedX, threshold)
                     if (steps != 0) {
                         keyListener?.invoke("CURSOR:$steps")
@@ -126,6 +139,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     stopBackspaceRepeat()
+                    backspaceRepeatCount = 0
                     downX = event.rawX
                     deleteWordTriggered = false
                     key.setTouchFeedback(true, performHaptic = true)
@@ -365,7 +379,10 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private companion object {
-        const val BACKSPACE_REPEAT_START_DELAY_MS = 400L
-        const val BACKSPACE_REPEAT_INTERVAL_MS = 50L
+        const val CURSOR_STEP_DP = 18
+        const val BACKSPACE_REPEAT_START_DELAY_MS = 280L
+        const val BACKSPACE_REPEAT_INTERVAL_MS = 42L
+        const val BACKSPACE_REPEAT_FAST_INTERVAL_MS = 28L
+        const val BACKSPACE_ACCELERATION_COUNT = 5
     }
 }
