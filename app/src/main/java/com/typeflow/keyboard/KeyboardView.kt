@@ -70,11 +70,15 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
                                 stopBackspaceRepeat()
+                                key.setTouchFeedback(pressed = true, performHaptic = true)
                                 keyListener?.invoke("⌫")
                                 backspaceRepeating = true
                                 repeatHandler.postDelayed(backspaceRepeat, BACKSPACE_REPEAT_START_DELAY_MS)
                             }
-                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> stopBackspaceRepeat()
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                key.setTouchFeedback(pressed = false)
+                                stopBackspaceRepeat()
+                            }
                         }
                         true
                     }
