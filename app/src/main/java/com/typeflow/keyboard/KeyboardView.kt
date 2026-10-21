@@ -20,6 +20,15 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var backspaceRepeating = false
     private var backspaceRepeatCount = 0
     private var backspaceDidDelete = false
+    private var hapticsEnabled = true
+    private var keyHeightDp = 48
+    private var emojiMode = false
+    private var recentEmoji: List<String> = emptyList()
+    private var emojiItems: List<String> = emptyList()
+    private var emojiAdapter: BaseAdapter? = null
+    private var emojiGrid: GridView? = null
+    private var emojiCategory = 0
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val backspaceRepeat = object : Runnable {
         override fun run() {
             if (!backspaceRepeating) return
@@ -137,7 +146,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     stopBackspaceRepeat()
-                                backspaceRepeatCount = 0
+                    backspaceRepeatCount = 0
                     backspaceDidDelete = false
                     downX = event.rawX
                     previewActive = false
@@ -152,7 +161,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         if (!previewActive) {
                             previewActive = true
                             stopBackspaceRepeat()
-                            repeatHandler.removeCallbacks(backspaceInitialDelete)
                         }
                         val count = ((dragDp - DELETE_PREVIEW_START_DP) / DELETE_PREVIEW_CHAR_DP).toInt() + 1
                         if (count != lastPreviewCount) {
@@ -173,7 +181,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     key.setTouchFeedback(false)
                     if (previewActive) keyListener?.invoke("DELETE_PREVIEW_CANCEL")
                     stopBackspaceRepeat()
-                    repeatHandler.removeCallbacks(backspaceInitialDelete)
                 }
             }
             true
@@ -445,7 +452,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     fun stopBackspaceRepeat() {
         backspaceRepeating = false
         repeatHandler.removeCallbacks(backspaceRepeat)
-        repeatHandler.removeCallbacks(backspaceInitialDelete)
     }
 
     fun cancelPendingGestures() {
