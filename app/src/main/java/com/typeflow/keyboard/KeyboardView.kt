@@ -293,8 +293,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
 
         // GridView virtualizes emoji cells instead of allocating thousands of TextViews at once.
         // Category chips navigate the complete vertically scrollable Unicode palette.
-        val categoryNames = listOf("Recent", "Smileys", "People", "Animals", "Food", "Travel", "Activities", "Objects", "Symbols", "Flags")
-        val categoryIcons = listOf("◷", "☺", "☻", "🐻", "🍎", "🚗", "⚽", "💡", "♥", "🏳")
+        val categoryNames = listOf("Recent", "Smileys", "People", "Animals", "Food", "Travel", "Activities", "Objects", "Symbols", "Flags", "All")
+        val categoryIcons = listOf("◷", "☺", "☻", "🐻", "🍎", "🚗", "⚽", "💡", "♥", "🏳", "☷")
         fun loadEmojiCategory(index: Int) {
             emojiCategory = index
             emojiItems = if (index == 0) (if (recentEmoji.isNotEmpty()) recentEmoji else UnicodeEmojiData.all.take(48)) else UnicodeEmojiData.all.filter { emoji ->
@@ -309,6 +309,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     7 -> cp in 0x1F4A0..0x1F4FF || cp in 0x1F3E0..0x1F3EF || cp in 0x1F9E0..0x1F9FF
                     8 -> cp in 0x2600..0x27BF || cp in 0x1FA70..0x1FAFF
                     9 -> cp in 0x1F1E6..0x1F1FF
+                    10 -> true
                     else -> false
                 }
             }
