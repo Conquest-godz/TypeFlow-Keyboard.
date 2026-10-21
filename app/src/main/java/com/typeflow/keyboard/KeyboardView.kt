@@ -160,7 +160,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     lastPreviewCount = 0
                     key.setTouchFeedback(true, performHaptic = true)
                     backspaceRepeating = true
-                    repeatHandler.postDelayed(backspaceInitialDelete, BACKSPACE_TAP_DELETE_DELAY_MS)
                     repeatHandler.postDelayed(backspaceRepeat, BACKSPACE_REPEAT_START_DELAY_MS)
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -182,7 +181,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     key.setTouchFeedback(false)
                     if (previewActive) keyListener?.invoke("DELETE_PREVIEW_COMMIT")
                     else if (!backspaceDidDelete) {
-                        repeatHandler.removeCallbacks(backspaceInitialDelete)
                         keyListener?.invoke("⌫")
                     }
                     stopBackspaceRepeat()
@@ -300,7 +298,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         val categoryIcons = listOf("◷", "☺", "☻", "🐻", "🍎", "🚗", "⚽", "💡", "♥", "🏳")
         fun loadEmojiCategory(index: Int) {
             emojiCategory = index
-            emojiItems = if (index == 0) recentEmoji else UnicodeEmojiData.all.filter { emoji ->
+            emojiItems = if (index == 0) (if (recentEmoji.isNotEmpty()) recentEmoji else UnicodeEmojiData.all.take(48)) else UnicodeEmojiData.all.filter { emoji ->
                 val cp = emoji.codePointAt(0)
                 when (index) {
                     1 -> cp in 0x1F600..0x1F64F || cp in 0x1F910..0x1F92F || cp in 0x1F970..0x1F97A || cp in 0x1F9D0..0x1F9E6
@@ -419,7 +417,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         recentEmoji = values.distinct().take(24)
         if (emojiMode) {
             if (emojiCategory == 0) {
-                emojiItems = recentEmoji
+                emojiItems = if (recentEmoji.isNotEmpty()) recentEmoji else UnicodeEmojiData.all.take(48)
                 emojiAdapter?.notifyDataSetChanged()
             }
         }
@@ -480,7 +478,6 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private companion object {
         const val CURSOR_STEP_DP = 10
-        const val BACKSPACE_TAP_DELETE_DELAY_MS = 100L
         const val DELETE_PREVIEW_START_DP = 8f
         const val DELETE_PREVIEW_CHAR_DP = 10f
         const val BACKSPACE_REPEAT_START_DELAY_MS = 340L
