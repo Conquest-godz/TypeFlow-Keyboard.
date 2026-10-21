@@ -51,21 +51,38 @@ internal object SwipeTypingEngine {
         val normalized = normalizePath(path)
         if (normalized.length < 2) return null
         if (normalized in dictionary) return normalized
-        val maxDistance = (normalized.length / 3).coerceIn(1, 3)
-        val ranked = dictionary.asSequence()
-            .filter { abs(it.length - normalized.length) <= maxDistance }
-            .map { it to editDistance(normalized, it) }
-            .filter { it.second <= maxDistance }
-            .sortedWith(compareBy<Pair<String, Int>> { it.second }
-                .thenBy { if (it.first.firstOrNull() == normalized.first()) 0 else 1 }
-                .thenBy { if (it.first.lastOrNull() == normalized.last()) 0 else 1 }
-                .thenBy { it.first })
-            .take(2).toList()
-        if (ranked.isEmpty()) return null
-        // Do not reject every equal-edit-distance result: a real glide often skips a
-        // repeated key ("hello" -> "helo"). The endpoint tie-breakers above carry
-        // useful signal; rejecting the tie here made common swipes silently insert nothing.
-        return ranked[0].first
+
+        // The geometric decoder is deliberately conservative. Keep a resilient local
+        // fallback for real-world touch sampling, where a fast swipe may skip several keys.
+        // Prefer words with matching endpoints, then edit distance and frequency order
+        // (the bundled word list is frequency-ranked).
+        val maxDistance = (normalized.length / 2).coerceIn(1, 5)
+        var bestWord: String? = null
+        var bestScore = Int.MAX_VALUE
+        var secondScore = Int.MAX_VALUE
+        for ((index, word) in dictionary.withIndex()) {
+            if (abs(word.length - normalized.length) > maxDistance) continue
+            val distance = editDistance(normalized, word)
+            if (distance > maxDistance) continue
+            val endpointPenalty =
+                (if (word.firstOrNull() == normalized.first()) 0 else 2) +
+                (if (word.lastOrNull() == normalized.last()) 0 else 2)
+            // Keep the arithmetic integral and bounded; dictionary order breaks remaining ties.
+            val score = distance * 10 + endpointPenalty
+            if (score < bestScore) {
+                secondScore = bestScore
+                bestScore = score
+                bestWord = word
+            } else if (score < secondScore && word != bestWord) {
+                secondScore = score
+            }
+        }
+        val winner = bestWord ?: return null
+        // For very short traces, a fuzzy guess is more likely to be wrong than useful.
+        if (normalized.length < 3 && bestScore >= 10) return null
+        // Accept the best plausible match instead of returning null on every ambiguous trace;
+        // the caller only invokes this path after a deliberate swipe, never a tap.
+        return winner
     }
 
     fun recognizeSpatial(
