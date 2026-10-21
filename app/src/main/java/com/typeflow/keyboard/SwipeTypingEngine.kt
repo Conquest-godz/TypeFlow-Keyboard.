@@ -75,16 +75,16 @@ internal object SwipeTypingEngine {
         val startKey = nearestKey(rawPath.first(), keyCenters) ?: return null
         val endKey = nearestKey(rawPath.last(), keyCenters) ?: return null
         val normalizedPath = resample(rawPath, SAMPLE_COUNT)
-        val maxEdit = (pathKeys.length / 3).coerceIn(1, 4)
-
-        // Cheap lexical pruning prevents a full geometric comparison against every dictionary word.
+        // A finger trace often skips keys and crosses neighbouring keys accidentally.
+        // Use a wider lexical window, then let the actual spatial trace do the ranking.
+        val maxEdit = (pathKeys.length / 2).coerceIn(2, 8)
         val candidates = dictionary.asSequence()
             .filter { word ->
-                word.length in max(2, pathKeys.length - maxEdit)..(pathKeys.length + maxEdit) &&
+                word.length in max(2, pathKeys.length - 3)..(pathKeys.length + 6) &&
                     word.first() == startKey && word.last() == endKey
             }
             .map { word -> word to editDistance(pathKeys, word) }
-            .filter { it.second <= maxEdit }
+            .filter { (word, edits) -> edits <= max(maxEdit, word.length / 2) }
             .sortedBy { it.second }
             .take(MAX_GEOMETRIC_CANDIDATES)
             .toList()
