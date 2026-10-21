@@ -114,14 +114,25 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     }
 
     private fun installBackspaceGesture(key: KeyView) {
+        var downX = 0f
+        var deleteWordTriggered = false
         key.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     stopBackspaceRepeat()
+                    downX = event.rawX
+                    deleteWordTriggered = false
                     key.setTouchFeedback(true, performHaptic = true)
                     keyListener?.invoke("⌫")
                     backspaceRepeating = true
                     repeatHandler.postDelayed(backspaceRepeat, BACKSPACE_REPEAT_START_DELAY_MS)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!deleteWordTriggered && downX - event.rawX > touchSlop * 1.5f) {
+                        deleteWordTriggered = true
+                        stopBackspaceRepeat()
+                        keyListener?.invoke("DELETE_WORD")
+                    }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     key.setTouchFeedback(false); stopBackspaceRepeat()
