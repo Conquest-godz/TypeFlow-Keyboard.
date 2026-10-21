@@ -43,11 +43,9 @@ internal object SwipeTypingEngine {
 
         // Glide paths commonly miss intermediate keys, so permit a small endpoint mismatch
         // as well as insertions/deletions. A confidence ceiling prevents wild guesses.
-        val maxDistance = when {
-            normalized.length <= 4 -> 2
-            normalized.length <= 7 -> 2
-            else -> 3
-        }
+        // Real glides often cross neighbouring keys that are not in the intended word.
+        // Permit a proportional number of path-key errors while capping false-positive risk.
+        val maxDistance = (normalized.length / 3).coerceIn(2, 4)
         var bestWord: String? = null
         var bestScore = Double.POSITIVE_INFINITY
         var secondBestScore = Double.POSITIVE_INFINITY
@@ -56,11 +54,11 @@ internal object SwipeTypingEngine {
             val distance = editDistance(normalized, word)
             if (distance > maxDistance) continue
             val endpointPenalty =
-                (if (word.firstOrNull() == normalized.first()) 0.0 else 0.85) +
+                (if (word.firstOrNull() == normalized.first()) 0.0 else 0.7) +
                 (if (word.lastOrNull() == normalized.last()) 0.0 else 0.85)
             // Prefer exact endpoints, modest length differences, and the shortest edit path.
             val score = distance.toDouble() + endpointPenalty +
-                kotlin.math.abs(word.length - normalized.length) * 0.16
+                kotlin.math.abs(word.length - normalized.length) * 0.12
             if (score < bestScore) {
                 secondBestScore = bestScore
                 bestScore = score
@@ -70,8 +68,8 @@ internal object SwipeTypingEngine {
             }
         }
         // Don't turn an uncertain glide into a random dictionary word.
-        if (bestScore > maxDistance + 0.9) return null
-        if (secondBestScore.isFinite() && secondBestScore - bestScore < 0.12 && bestScore > 1.0) {
+        if (bestScore > maxDistance + 0.7) return null
+        if (secondBestScore.isFinite() && secondBestScore - bestScore < 0.18 && bestScore > 1.0) {
             return null
         }
         return bestWord
