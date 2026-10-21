@@ -11,6 +11,7 @@ import android.view.ViewConfiguration
 import android.widget.BaseAdapter
 import android.widget.GridView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 
 class KeyboardView(context: Context) : LinearLayout(context) {
@@ -196,6 +197,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         var longPressed = false
         var pendingAlternates: List<String>? = null
         var path = mutableListOf(originalLabel.lowercase()[0])
+        var previewPopup: PopupWindow? = null
         val longPress = Runnable {
             val options = KeyboardLayout.alternates[originalLabel.lowercase()]
             if (!options.isNullOrEmpty() && !swiping) {
@@ -212,6 +214,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     swiping = false; longPressed = false; pendingAlternates = null
                     path = mutableListOf(originalLabel.lowercase()[0])
                     key.setTouchFeedback(true, performHaptic = true)
+                    previewPopup?.dismiss()
+                    previewPopup = showLetterPreview(key, originalLabel)
                     repeatHandler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -219,6 +223,8 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                     val dy = event.rawY - downY
                     if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop) {
                         repeatHandler.removeCallbacks(longPress)
+                        previewPopup?.dismiss()
+                        previewPopup = null
                     }
                     if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) > touchSlop * 1.35) swiping = true
                     if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
@@ -226,6 +232,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
                 MotionEvent.ACTION_UP -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
+                    previewPopup?.dismiss(); previewPopup = null
                     if (swiping) sampleSwipePath(previousX, previousY, event.rawX, event.rawY, path)
                     when {
                         longPressed -> pendingAlternates?.let { showAlternates(it) }
@@ -239,10 +246,37 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     repeatHandler.removeCallbacks(longPress); key.setTouchFeedback(false)
+                    previewPopup?.dismiss(); previewPopup = null
                 }
             }
             true
         }
+    }
+
+    private fun showLetterPreview(key: KeyView, label: String): PopupWindow {
+        val bubble = TextView(context).apply {
+            text = label
+            textSize = 28f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(12).toFloat()
+                setColor(Color.rgb(66, 68, 74))
+                setStroke(dp(1), Color.rgb(110, 112, 120))
+            }
+            elevation = dp(5).toFloat()
+        }
+        val popup = PopupWindow(bubble, dp(48), dp(58), false).apply {
+            isTouchable = false
+            isFocusable = false
+            isOutsideTouchable = false
+            elevation = dp(5).toFloat()
+        }
+        val location = IntArray(2)
+        key.getLocationOnScreen(location)
+        popup.showAtLocation(this, Gravity.NO_GRAVITY, location[0] + key.width / 2 - dp(24), (location[1] - dp(58)).coerceAtLeast(0))
+        return popup
     }
 
     /** Sample movement while caching key bounds once per segment to keep the IME responsive. */
