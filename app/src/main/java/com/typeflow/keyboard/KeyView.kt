@@ -74,6 +74,7 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
         value.startsWith("CAT:") -> when (value.removePrefix("CAT:")) {
             "Recent" -> "◷"; "Smileys" -> "☺"; "Gestures" -> "☝"; "Hearts" -> "♥"; "Symbols" -> "✦"; else -> value
         }
+        value.startsWith("ALT:") -> if (value == "ALT:CANCEL") "×" else value.removePrefix("ALT:")
         else -> value
     }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
