@@ -273,9 +273,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             isOutsideTouchable = false
             elevation = dp(5).toFloat()
         }
-        val location = IntArray(2)
-        key.getLocationOnScreen(location)
-        popup.showAtLocation(this, Gravity.NO_GRAVITY, location[0] + key.width / 2 - dp(24), (location[1] - dp(58)).coerceAtLeast(0))
+        // Anchor to the actual key view. Absolute screen coordinates are unreliable for IME
+        // windows on some Android versions and can place previews at the bottom of the keyboard.
+        popup.showAsDropDown(key, (key.width - dp(48)) / 2, -key.height - dp(58), Gravity.START)
         return popup
     }
 
@@ -431,7 +431,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
         emojiGrid = grid
         emojiAdapter = grid.adapter as? BaseAdapter
-        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(126)))
+        // Initial fallback is replaced by resizeEmojiGridToKeyboard() after measurement.
+        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, dp(keyHeightDp * 2 + 12)))
+        post { resizeEmojiGridToKeyboard() }
 
         val controls = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER }
         listOf("ABC", "⌫").forEach { label ->
@@ -445,6 +447,27 @@ class KeyboardView(context: Context) : LinearLayout(context) {
             controls.addView(key)
         }
         addView(controls, LayoutParams(LayoutParams.MATCH_PARENT, dp(keyHeightDp + 6)))
+    }
+
+    /** Keep the emoji palette the same total height as the normal keyboard as settings/window size change. */
+    private fun resizeEmojiGridToKeyboard() {
+        val grid = emojiGrid ?: return
+        val measuredKeyboardHeight = height
+        if (measuredKeyboardHeight <= 0) return
+        val categoryHeight = dp(34)
+        val controlsHeight = dp(keyHeightDp + 6)
+        val availableGridHeight = measuredKeyboardHeight - paddingTop - paddingBottom - categoryHeight - controlsHeight
+        val targetHeight = availableGridHeight.coerceAtLeast(dp(keyHeightDp))
+        val params = grid.layoutParams
+        if (params.height != targetHeight) {
+            params.height = targetHeight
+            grid.layoutParams = params
+        }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (emojiMode) post { resizeEmojiGridToKeyboard() }
     }
 
     fun setRecentEmoji(values: List<String>) {
@@ -461,6 +484,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         hapticsEnabled = haptics
         keyHeightDp = keyHeight.coerceIn(40, 64)
         keyViews.forEach { it.hapticsEnabled = hapticsEnabled; it.keyHeightDp = keyHeightDp }
+        if (emojiMode) post { resizeEmojiGridToKeyboard() }
     }
 
     fun showLetters() = buildLayout(KeyboardLayout.letters)
