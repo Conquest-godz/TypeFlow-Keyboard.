@@ -62,7 +62,9 @@ internal object SwipeTypingEngine {
                 .thenBy { it.first })
             .take(2).toList()
         if (ranked.isEmpty()) return null
-        if (ranked.size > 1 && ranked[0].second == ranked[1].second && ranked[0].first.length > 3) return null
+        // Do not reject every equal-edit-distance result: a real glide often skips a
+        // repeated key ("hello" -> "helo"). The endpoint tie-breakers above carry
+        // useful signal; rejecting the tie here made common swipes silently insert nothing.
         return ranked[0].first
     }
 
