@@ -36,7 +36,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         removeAllViews()
         keyViews.clear()
 
-        layout.forEachIndexed { rowIndex, row ->
+        layout.forEach { row ->
             val rowView = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER
@@ -77,7 +77,7 @@ class KeyboardView(context: Context) : LinearLayout(context) {
                         true
                     }
                 } else {
-                    key.setOnClickListener { keyListener?.invoke(label) }
+                    key.setOnClickListener { keyListener?.invoke(key.getLabel()) }
                 }
 
                 keyViews.add(key)
@@ -95,19 +95,42 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         keyListener = listener
     }
 
+    fun setShiftState(state: ShiftStateMachine.State) {
+        val shifted = state != ShiftStateMachine.State.OFF
+        keyViews.forEach { key ->
+            val label = key.getLabel()
+            if (label.length == 1 && label[0].isLetter()) {
+                key.setLabel(if (shifted) label.uppercase() else label.lowercase())
+            }
+            if (label == "⇧") {
+                key.isSelected = state != ShiftStateMachine.State.OFF
+                key.contentDescription = when (state) {
+                    ShiftStateMachine.State.OFF -> "Shift off"
+                    ShiftStateMachine.State.SHIFT -> "Shift on"
+                    ShiftStateMachine.State.CAPS_LOCK -> "Caps Lock on"
+                }
+            }
+        }
+    }
+
     fun updateEnterKey(label: String) {
-        keyViews.lastOrNull()?.setLabel(label)
+        keyViews.lastOrNull()?.let { key ->
+            key.setLabel(when (label) {
+                "Enter" -> "↵"
+                else -> label
+            })
+            key.contentDescription = label
+        }
+    }
+
+    fun stopBackspaceRepeat() {
+        backspaceRepeating = false
+        repeatHandler.removeCallbacks(backspaceRepeat)
     }
 
     override fun onDetachedFromWindow() {
         stopBackspaceRepeat()
-        keyListener = null
         super.onDetachedFromWindow()
-    }
-
-    private fun stopBackspaceRepeat() {
-        backspaceRepeating = false
-        repeatHandler.removeCallbacks(backspaceRepeat)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
