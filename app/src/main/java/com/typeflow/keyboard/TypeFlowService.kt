@@ -26,6 +26,10 @@ class TypeFlowService : InputMethodService() {
     }
 
     override fun onCreateInputView(): View {
+        // A preview selection belongs to the old input view/editor and must not leak into a
+        // recreated keyboard view.
+        deletePreviewAnchor = null
+        deletePreviewBeforeText = ""
         val view = KeyboardView(this)
         keyboard = view
         view.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp)
