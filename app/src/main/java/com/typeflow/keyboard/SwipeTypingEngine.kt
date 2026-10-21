@@ -89,7 +89,9 @@ internal object SwipeTypingEngine {
             .take(MAX_GEOMETRIC_CANDIDATES)
             .toList()
 
-        if (candidates.isEmpty()) return recognize(pathKeys.toList())
+        // Do not fall back to edit-distance-only guesses here: a failed geometric match must
+        // remain uncommitted instead of inserting a plausible but unrelated word.
+        if (candidates.isEmpty()) return null
         val ranked = candidates.mapNotNull { (word, edits) ->
             val template = word.map { keyCenters[it] ?: return@mapNotNull null }
             val idealPath = resample(template, SAMPLE_COUNT)
@@ -174,7 +176,7 @@ internal object SwipeTypingEngine {
     }
 
     private const val SAMPLE_COUNT = 24
-    private const val MAX_GEOMETRIC_CANDIDATES = 100
+    private const val MAX_GEOMETRIC_CANDIDATES = 300
     private const val EDIT_PENALTY = 0.006
     private const val MAX_ACCEPTED_SCORE = 0.30
     private const val MIN_WIN_MARGIN = 0.012
