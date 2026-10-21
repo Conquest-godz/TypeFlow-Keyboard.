@@ -326,6 +326,11 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         repeatHandler.removeCallbacks(backspaceRepeat)
     }
 
+    fun cancelPendingGestures() {
+        stopBackspaceRepeat()
+        repeatHandler.removeCallbacksAndMessages(null)
+    }
+
     override fun onDetachedFromWindow() {
         stopBackspaceRepeat()
         repeatHandler.removeCallbacksAndMessages(null)
