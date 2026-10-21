@@ -12,7 +12,6 @@ import android.widget.TextView
 
 class KeyView(context: Context, private var label: String) : LinearLayout(context) {
     private val textView = TextView(context)
-    private var pressed = false
 
     init {
         gravity = Gravity.CENTER
@@ -40,17 +39,17 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
         textView.text = displayLabel(value)
     }
 
+    // Touch listeners that consume MotionEvents must call this explicitly;
+    // otherwise onTouchEvent() is bypassed and no feedback is produced.
+    fun setTouchFeedback(pressed: Boolean, performHaptic: Boolean = false) {
+        if (performHaptic) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        refreshBackground(pressed)
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                pressed = true
-                refreshBackground(true)
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                pressed = false
-                refreshBackground(false)
-            }
+            MotionEvent.ACTION_DOWN -> setTouchFeedback(pressed = true, performHaptic = true)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> setTouchFeedback(pressed = false)
         }
         return super.onTouchEvent(event)
     }
