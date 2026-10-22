@@ -64,6 +64,64 @@ class SettingsActivity : Activity() {
             })
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)))
         root.addView(TextView(this).apply {
+            text = "TypeFlow Studio · Appearance"
+            textSize = 20f
+            setTextColor(android.graphics.Color.WHITE)
+            setPadding(0, dp(24), 0, dp(8))
+        })
+        val colorNames = mapOf(
+            KeyboardPreferences.COLOR_GRAPHITE to "Graphite",
+            KeyboardPreferences.COLOR_MIDNIGHT to "Midnight",
+            KeyboardPreferences.COLOR_OCEAN to "Ocean",
+            KeyboardPreferences.COLOR_VIOLET to "Violet"
+        )
+        val colorButton = Button(this)
+        fun refreshColorButton() {
+            colorButton.text = "Key color: " + (colorNames[preferences.keyColor] ?: "Graphite") + "  ›"
+        }
+        colorButton.setOnClickListener {
+            val colors = listOf(
+                KeyboardPreferences.COLOR_GRAPHITE,
+                KeyboardPreferences.COLOR_MIDNIGHT,
+                KeyboardPreferences.COLOR_OCEAN,
+                KeyboardPreferences.COLOR_VIOLET
+            )
+            preferences.keyColor = colors[(colors.indexOf(preferences.keyColor) + 1).mod(colors.size)]
+            refreshColorButton()
+        }
+        refreshColorButton()
+        root.addView(colorButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        val shapeNames = mapOf(
+            KeyboardPreferences.SHAPE_ROUNDED to "Rounded",
+            KeyboardPreferences.SHAPE_PILL to "Pill",
+            KeyboardPreferences.SHAPE_SQUARE to "Square"
+        )
+        val shapeButton = Button(this)
+        fun refreshShapeButton() {
+            shapeButton.text = "Key shape: " + (shapeNames[preferences.keyShape] ?: "Rounded") + "  ›"
+        }
+        shapeButton.setOnClickListener {
+            val shapes = listOf(
+                KeyboardPreferences.SHAPE_ROUNDED,
+                KeyboardPreferences.SHAPE_PILL,
+                KeyboardPreferences.SHAPE_SQUARE
+            )
+            preferences.keyShape = shapes[(shapes.indexOf(preferences.keyShape) + 1).mod(shapes.size)]
+            refreshShapeButton()
+        }
+        refreshShapeButton()
+        root.addView(shapeButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        root.addView(Switch(this).apply {
+            text = "Press elevation effect"
+            textSize = 16f
+            setTextColor(android.graphics.Color.WHITE)
+            isChecked = preferences.pressEffectEnabled
+            setOnCheckedChangeListener { _, checked -> preferences.pressEffectEnabled = checked }
+            setPadding(0, dp(8), 0, dp(8))
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        root.addView(TextView(this).apply {
             text = "Typing stays on-device. TypeFlow does not send keystrokes to a server."
             setTextColor(android.graphics.Color.LTGRAY)
             textSize = 14f
