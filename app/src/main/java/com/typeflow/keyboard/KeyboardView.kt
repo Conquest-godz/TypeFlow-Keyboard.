@@ -23,6 +23,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private var backspaceDidDelete = false
     private var hapticsEnabled = true
     private var keyHeightDp = 48
+    private var keyColor = KeyboardPreferences.COLOR_GRAPHITE
+    private var keyShape = KeyboardPreferences.SHAPE_ROUNDED
+    private var pressEffectEnabled = true
     private var emojiMode = false
     private var recentEmoji: List<String> = emptyList()
     private var emojiItems: List<String> = emptyList()
@@ -93,6 +96,9 @@ class KeyboardView(context: Context) : LinearLayout(context) {
     private fun createKey(label: String): KeyView = KeyView(context, label).apply {
         hapticsEnabled = this@KeyboardView.hapticsEnabled
         keyHeightDp = this@KeyboardView.keyHeightDp
+        keyColor = this@KeyboardView.keyColor
+        keyShape = this@KeyboardView.keyShape
+        pressEffectEnabled = this@KeyboardView.pressEffectEnabled
         contentDescription = when {
             label == "SPACE" -> "Space"
             label == "⌫" -> "Backspace"
@@ -555,10 +561,25 @@ class KeyboardView(context: Context) : LinearLayout(context) {
         }
     }
 
-    fun setPreferences(haptics: Boolean, keyHeight: Int) {
+    fun setPreferences(
+        haptics: Boolean,
+        keyHeight: Int,
+        color: String = keyColor,
+        shape: String = keyShape,
+        pressEffect: Boolean = pressEffectEnabled
+    ) {
         hapticsEnabled = haptics
         keyHeightDp = keyHeight.coerceIn(40, 64)
-        keyViews.forEach { it.hapticsEnabled = hapticsEnabled; it.keyHeightDp = keyHeightDp }
+        keyColor = color.takeIf { it in KeyboardPreferences.KEY_COLORS } ?: KeyboardPreferences.COLOR_GRAPHITE
+        keyShape = shape.takeIf { it in KeyboardPreferences.KEY_SHAPES } ?: KeyboardPreferences.SHAPE_ROUNDED
+        pressEffectEnabled = pressEffect
+        keyViews.forEach {
+            it.hapticsEnabled = hapticsEnabled
+            it.keyHeightDp = keyHeightDp
+            it.keyColor = keyColor
+            it.keyShape = keyShape
+            it.pressEffectEnabled = pressEffectEnabled
+        }
         if (!emojiMode && height > 0) regularKeyboardHeightPx = height
         if (emojiMode) post { resizeEmojiGridToKeyboard() }
     }
