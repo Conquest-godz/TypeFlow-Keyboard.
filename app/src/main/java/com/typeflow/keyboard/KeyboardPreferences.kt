@@ -14,6 +14,14 @@ class KeyboardPreferences(context: Context) {
         get() = prefs.getInt(KEY_HEIGHT, 48).coerceIn(40, 64)
         set(value) { prefs.edit().putInt(KEY_HEIGHT, value.coerceIn(40, 64)).apply() }
 
+    var themePreset: String
+        get() = prefs.getString("theme_preset", "midnight") ?: "midnight"
+        set(value) { prefs.edit().putString("theme_preset", value).apply() }
+
+    var keyCornerDp: Int
+        get() = prefs.getInt("key_corner_dp", 10).coerceIn(2, 20)
+        set(value) { prefs.edit().putInt("key_corner_dp", value.coerceIn(2, 20)).apply() }
+
     fun recentEmoji(): List<String> = prefs.getString(KEY_RECENT_EMOJI, null)
         ?.split(SEP)?.filter { it.isNotBlank() } ?: emptyList()
 
