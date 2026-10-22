@@ -14,6 +14,11 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
     private val textView = TextView(context)
     private var pressed = false
     private var shiftActive = false
+    var keyColor: String = KeyboardPreferences.COLOR_GRAPHITE
+        set(value) { field = value; refreshBackground() }
+    var keyShape: String = KeyboardPreferences.SHAPE_ROUNDED
+        set(value) { field = value; refreshBackground() }
+    var pressEffectEnabled: Boolean = true
     var hapticsEnabled: Boolean = true
         set(value) {
             field = value
@@ -63,13 +68,21 @@ class KeyView(context: Context, private var label: String) : LinearLayout(contex
     }
 
     private fun refreshBackground() {
-        val color = when { pressed -> "#55565A"; shiftActive -> "#66686D"; else -> "#2C2D31" }
+        val color = when {
+            pressed && pressEffectEnabled -> "#55565A"
+            shiftActive -> "#66686D"
+            else -> keyColor
+        }
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(if (label.startsWith("E:")) 12 else 10).toFloat()
-            setColor(Color.parseColor(color))
+            cornerRadius = when (keyShape) {
+                KeyboardPreferences.SHAPE_PILL -> dp(30).toFloat()
+                KeyboardPreferences.SHAPE_SQUARE -> dp(3).toFloat()
+                else -> dp(if (label.startsWith("E:")) 12 else 10).toFloat()
+            }
+            setColor(runCatching { Color.parseColor(color) }.getOrDefault(Color.rgb(44, 45, 49)))
         }
-        elevation = dp(2).toFloat()
+        elevation = if (pressEffectEnabled) dp(2).toFloat() else 0f
     }
 
     private fun displayLabel(value: String): String = when {
