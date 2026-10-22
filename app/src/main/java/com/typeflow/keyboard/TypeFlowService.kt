@@ -32,7 +32,7 @@ class TypeFlowService : InputMethodService() {
         deletePreviewBeforeText = ""
         val view = KeyboardView(this)
         keyboard = view
-        view.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp)
+        view.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp, preferences.keyColor, preferences.keyShape, preferences.pressEffectEnabled)
         view.setRecentEmoji(preferences.recentEmoji())
         view.setKeyListener { key ->
             when (key) {
@@ -90,7 +90,7 @@ class TypeFlowService : InputMethodService() {
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         if (::preferences.isInitialized) {
-            keyboard?.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp)
+            keyboard?.setPreferences(preferences.hapticsEnabled, preferences.keyHeightDp, preferences.keyColor, preferences.keyShape, preferences.pressEffectEnabled)
             keyboard?.setRecentEmoji(preferences.recentEmoji())
         }
         if (!restarting) {
